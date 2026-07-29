@@ -13,7 +13,7 @@ export async function getTaskShares(taskId: string) {
     const supabase = await createClient();
     const { data, error } = await supabase
       .from("task_shares")
-      .select("*, profiles(id,email,display_name,avatar_url)")
+      .select("*, profile:profiles!task_shares_user_id_fkey(id,email,display_name,avatar_url)")
       .eq("task_id", taskId)
       .eq("is_active", true);
     if (error) return fail("LOAD_SHARES_FAILED", error.message);

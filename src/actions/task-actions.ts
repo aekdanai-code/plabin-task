@@ -12,14 +12,14 @@ type TaskRow = TaskSummary & {
   checklist_items?: Array<{ id: string; is_checked: boolean }>;
   task_shares?: Array<{
     permission: "VIEWER" | "CHECKER" | "EDITOR";
-    profiles: { id: string; email: string; display_name: string | null; avatar_url: string | null } | null;
+    profile: { id: string; email: string; display_name: string | null; avatar_url: string | null } | null;
   }>;
 };
 
 function mapTask(row: TaskRow, userId: string): TaskSummary {
-  const collaborators = (row.task_shares ?? []).map((share) => share.profiles).filter(Boolean) as NonNullable<TaskSummary["collaborators"]>;
+  const collaborators = (row.task_shares ?? []).map((share) => share.profile).filter(Boolean) as NonNullable<TaskSummary["collaborators"]>;
   const checklist = row.checklist_items ?? [];
-  const share = row.task_shares?.find((item) => item.profiles?.id === userId);
+  const share = row.task_shares?.find((item) => item.profile?.id === userId);
 
   return {
     ...row,
@@ -40,10 +40,14 @@ export async function getInitialData(filters: TaskFilters = {}) {
     supabase.from("profiles").select("*").eq("is_active", true).order("display_name")
   ]);
 
+  if (!tasks.ok) return tasks;
+  if (categories.error) return fail("LOAD_CATEGORIES_FAILED", categories.error.message);
+  if (users.error) return fail("LOAD_USERS_FAILED", users.error.message);
+
   return ok(
     {
       currentUser: user,
-      tasks: tasks.ok ? tasks.data : [],
+      tasks: tasks.data,
       categories: categories.data ?? [],
       users: users.data ?? []
     },
@@ -58,7 +62,7 @@ export async function getTasks(filters: TaskFilters = {}): Promise<ActionResult<
     let query = supabase
       .from("tasks")
       .select(
-        "*, categories(*), checklist_items(id,is_checked), task_shares(permission, profiles(id,email,display_name,avatar_url))"
+        "*, categories(*), checklist_items(id,is_checked), task_shares(permission, profile:profiles!task_shares_user_id_fkey(id,email,display_name,avatar_url))"
       )
       .eq("is_deleted", false)
       .eq("is_archived", filters.archived ?? false);
@@ -98,7 +102,7 @@ export async function getTaskDetail(taskId: string): Promise<ActionResult<TaskDe
     const { data, error } = await supabase
       .from("tasks")
       .select(
-        "*, categories(*), checklist_items(*), task_shares(*, profiles(id,email,display_name,avatar_url))"
+        "*, categories(*), checklist_items(*), task_shares(*, profile:profiles!task_shares_user_id_fkey(id,email,display_name,avatar_url))"
       )
       .eq("id", taskId)
       .eq("is_deleted", false)
