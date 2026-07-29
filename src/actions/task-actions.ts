@@ -147,30 +147,19 @@ export async function updateTask(taskId: string, payload: unknown): Promise<Acti
   try {
     uuidSchema.parse(taskId);
     const input = taskUpdateSchema.parse(payload);
-    const user = await requireUser();
+    await requireUser();
     const supabase = await createClient();
 
-    const { data, error } = await supabase
-      .from("tasks")
-      .update({
-        task_name: input.task_name,
-        description: input.description || null,
-        category_id: input.category_id
-      })
-      .eq("id", taskId)
-      .select("*")
-      .single();
+    const { data, error } = await supabase.rpc("update_task_with_items", {
+      target_task_id: taskId,
+      next_task_name: input.task_name,
+      next_description: input.description || "",
+      next_category_id: input.category_id,
+      next_checklist_items: input.checklist_items,
+      ...(input.shares ? { next_task_shares: input.shares } : {})
+    });
 
     if (error || !data) return fail("UPDATE_TASK_FAILED", error?.message ?? "แก้ไข Task ไม่สำเร็จ");
-
-    await supabase.from("activity_logs").insert({ task_id: taskId, user_id: user.id, action: "UPDATE_TASK", detail_json: {} });
-    if (input.shares) {
-      const { error: shareError } = await supabase.rpc("set_task_shares", {
-        target_task_id: taskId,
-        next_task_shares: input.shares
-      });
-      if (shareError) return fail("UPDATE_SHARES_FAILED", shareError.message);
-    }
     revalidatePath("/");
     return ok(data as TaskSummary, "แก้ไข Task สำเร็จ");
   } catch (error) {

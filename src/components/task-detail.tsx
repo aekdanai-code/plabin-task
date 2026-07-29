@@ -73,7 +73,9 @@ export function TaskDetailPanel({
               users={users}
               currentUserId={currentUser.id}
               initialTask={task}
+              canCheckChecklist={canCheckTask(access)}
               onClose={() => setEditing(false)}
+              onSaved={onClose}
             />
           </div>
         ) : (

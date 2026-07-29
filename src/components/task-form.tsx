@@ -1,7 +1,24 @@
 "use client";
 
 import { useMemo, useState, useTransition } from "react";
-import { Plus, Trash2, UserPlus, X } from "lucide-react";
+import {
+  DndContext,
+  KeyboardSensor,
+  PointerSensor,
+  closestCenter,
+  type DragEndEvent,
+  useSensor,
+  useSensors
+} from "@dnd-kit/core";
+import {
+  SortableContext,
+  arrayMove,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
+import { GripVertical, Plus, Trash2, UserPlus, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { createTask, updateTask } from "@/actions/task-actions";
@@ -13,30 +30,148 @@ const permissionLabels = {
   EDITOR: "แก้ไขได้"
 };
 
+type EditableChecklistItem = {
+  key: string;
+  id?: string;
+  item_name: string;
+  weight: number;
+  is_checked: boolean;
+};
+
+function newChecklistItem(key = crypto.randomUUID()): EditableChecklistItem {
+  return { key, item_name: "", weight: 1, is_checked: false };
+}
+
+function RequiredMark() {
+  return (
+    <span className="ml-1 text-apple-red" aria-hidden="true">
+      *
+    </span>
+  );
+}
+
+function SortableChecklistRow({
+  item,
+  index,
+  showChecked,
+  canCheck,
+  onChange,
+  onDelete
+}: {
+  item: EditableChecklistItem;
+  index: number;
+  showChecked: boolean;
+  canCheck: boolean;
+  onChange: (next: EditableChecklistItem) => void;
+  onDelete: () => void;
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: item.key });
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={{ transform: CSS.Transform.toString(transform), transition }}
+      className={`grid items-center gap-2 rounded-lg bg-apple-bg p-2 ${
+        showChecked
+          ? "grid-cols-[32px_32px_minmax(0,1fr)_76px_40px] sm:grid-cols-[32px_40px_minmax(0,1fr)_96px_40px]"
+          : "grid-cols-[32px_minmax(0,1fr)_76px_40px] sm:grid-cols-[32px_minmax(0,1fr)_96px_40px]"
+      } ${isDragging ? "z-10 shadow-panel" : ""}`}
+    >
+      <button
+        type="button"
+        className="flex h-9 w-8 touch-none items-center justify-center rounded-md text-apple-muted hover:bg-white hover:text-apple-text"
+        title="ลากเพื่อจัดลำดับ"
+        aria-label={`ลาก Checklist ลำดับที่ ${index + 1}`}
+        {...attributes}
+        {...listeners}
+      >
+        <GripVertical className="h-4 w-4" />
+      </button>
+      {showChecked ? (
+        <label className="flex h-9 w-8 items-center justify-center" title={canCheck ? "สถานะ Checklist" : "ไม่มีสิทธิ์เปลี่ยนสถานะ"}>
+          <input
+            type="checkbox"
+            checked={item.is_checked}
+            disabled={!canCheck}
+            onChange={(event) => onChange({ ...item, is_checked: event.target.checked })}
+            className="h-5 w-5 accent-apple-green disabled:opacity-50"
+            aria-label={`สถานะ ${item.item_name || `Checklist ${index + 1}`}`}
+          />
+        </label>
+      ) : null}
+      <input
+        required
+        value={item.item_name}
+        onChange={(event) => onChange({ ...item, item_name: event.target.value })}
+        className="min-w-0 rounded-md border border-transparent bg-white px-3 py-2 text-sm focus:border-apple-blue"
+        placeholder="รายการ *"
+        aria-label={`ชื่อ Checklist ลำดับที่ ${index + 1}`}
+      />
+      <input
+        required
+        min={0}
+        step="0.01"
+        type="number"
+        value={item.weight}
+        onChange={(event) => onChange({ ...item, weight: Number(event.target.value) })}
+        className="min-w-0 rounded-md border border-transparent bg-white px-2 py-2 text-sm focus:border-apple-blue"
+        aria-label={`น้ำหนัก Checklist ลำดับที่ ${index + 1}`}
+        title="น้ำหนัก"
+      />
+      <button
+        type="button"
+        className="flex h-9 w-9 items-center justify-center rounded-md bg-white text-apple-red"
+        onClick={onDelete}
+        title="ลบรายการ"
+        aria-label={`ลบ Checklist ลำดับที่ ${index + 1}`}
+      >
+        <Trash2 className="h-4 w-4" />
+      </button>
+    </div>
+  );
+}
+
 export function TaskForm({
   categories,
   users,
   currentUserId,
   initialTask,
-  onClose
+  canCheckChecklist = true,
+  onClose,
+  onSaved
 }: {
   categories: Category[];
   users: Profile[];
   currentUserId: string;
   initialTask?: TaskDetail;
+  canCheckChecklist?: boolean;
   onClose: () => void;
+  onSaved?: () => void;
 }) {
   const router = useRouter();
-  const [items, setItems] = useState(
-    initialTask?.checklist_items.map((item) => ({ item_name: item.item_name, weight: Number(item.weight) })) ?? [
-      { item_name: "", weight: 1 }
-    ]
-  );
+  const [items, setItems] = useState<EditableChecklistItem[]>(() => {
+    const initialItems = initialTask?.checklist_items
+      .filter((item) => !item.is_deleted)
+      .sort((a, b) => a.sort_order - b.sort_order)
+      .map((item) => ({
+        key: item.id,
+        id: item.id,
+        item_name: item.item_name,
+        weight: Number(item.weight),
+        is_checked: item.is_checked
+      }));
+    return initialItems?.length ? initialItems : [newChecklistItem("new-0")];
+  });
   const [shares, setShares] = useState<ShareInput[]>(
     initialTask?.shares.map((share) => ({ user_id: share.user_id, permission: share.permission })) ?? []
   );
   const [nextUserId, setNextUserId] = useState("");
+  const [checklistError, setChecklistError] = useState("");
   const [isPending, startTransition] = useTransition();
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
+  );
   const isEdit = Boolean(initialTask);
   const canManageShares = !initialTask || initialTask.owner_id === currentUserId;
 
@@ -51,20 +186,64 @@ export function TaskForm({
     setNextUserId("");
   }
 
+  function addItem() {
+    setItems((current) => [...current, newChecklistItem()]);
+    setChecklistError("");
+  }
+
+  function updateItem(key: string, next: EditableChecklistItem) {
+    setItems((current) => current.map((item) => (item.key === key ? next : item)));
+    setChecklistError("");
+  }
+
+  function removeItem(key: string) {
+    setItems((current) => current.filter((item) => item.key !== key));
+  }
+
+  function handleDragEnd(event: DragEndEvent) {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    setItems((current) => {
+      const oldIndex = current.findIndex((item) => item.key === active.id);
+      const newIndex = current.findIndex((item) => item.key === over.id);
+      return oldIndex < 0 || newIndex < 0 ? current : arrayMove(current, oldIndex, newIndex);
+    });
+  }
+
   function submit(formData: FormData) {
     if (isPending) return;
+    if (items.length === 0) {
+      setChecklistError("ต้องมี Checklist อย่างน้อย 1 รายการ");
+      toast.error("ต้องมี Checklist อย่างน้อย 1 รายการ");
+      return;
+    }
+    if (items.some((item) => !item.item_name.trim())) {
+      setChecklistError("กรุณาระบุชื่อ Checklist ให้ครบ");
+      toast.error("กรุณาระบุชื่อ Checklist ให้ครบ");
+      return;
+    }
+
+    setChecklistError("");
     startTransition(async () => {
+      const checklistItems = items.map((item, index) => ({
+        ...(item.id ? { id: item.id } : {}),
+        item_name: item.item_name.trim(),
+        weight: item.weight,
+        is_checked: item.is_checked,
+        sort_order: index + 1
+      }));
       const payload = {
         task_name: String(formData.get("task_name")),
         description: String(formData.get("description") || ""),
         category_id: String(formData.get("category_id")),
-        checklist_items: items,
+        checklist_items: checklistItems,
         ...(canManageShares ? { shares } : {})
       };
       const result = initialTask ? await updateTask(initialTask.id, payload) : await createTask(payload);
       if (result.ok) {
         toast.success(result.message);
-        onClose();
+        if (onSaved) onSaved();
+        else onClose();
         router.refresh();
       } else {
         toast.error(result.message);
@@ -75,7 +254,10 @@ export function TaskForm({
   return (
     <form action={submit} className="space-y-5">
       <label className="block">
-        <span className="text-sm font-medium text-apple-text">ชื่อ Task</span>
+        <span className="text-sm font-medium text-apple-text">
+          ชื่อ Task
+          <RequiredMark />
+        </span>
         <input
           required
           name="task_name"
@@ -93,7 +275,10 @@ export function TaskForm({
         />
       </label>
       <label className="block">
-        <span className="text-sm font-medium text-apple-text">หมวดหมู่</span>
+        <span className="text-sm font-medium text-apple-text">
+          หมวดหมู่
+          <RequiredMark />
+        </span>
         <select
           required
           name="category_id"
@@ -109,123 +294,121 @@ export function TaskForm({
         </select>
       </label>
 
-      {!isEdit ? (
+      <div>
+        <div className="mb-2 flex items-center justify-between gap-3">
+          <span className="text-sm font-medium text-apple-text">
+            Checklist
+            <RequiredMark />
+          </span>
+          <button
+            type="button"
+            className="flex items-center gap-1 rounded-lg bg-apple-bg px-3 py-2 text-xs font-semibold"
+            onClick={addItem}
+          >
+            <Plus className="h-4 w-4" /> เพิ่ม
+          </button>
+        </div>
+        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+          <SortableContext items={items.map((item) => item.key)} strategy={verticalListSortingStrategy}>
+            <div className="space-y-2">
+              {items.map((item, index) => (
+                <SortableChecklistRow
+                  key={item.key}
+                  item={item}
+                  index={index}
+                  showChecked={isEdit}
+                  canCheck={canCheckChecklist}
+                  onChange={(next) => updateItem(item.key, next)}
+                  onDelete={() => removeItem(item.key)}
+                />
+              ))}
+            </div>
+          </SortableContext>
+        </DndContext>
+        {items.length === 0 ? (
+          <button
+            type="button"
+            onClick={addItem}
+            className="w-full rounded-lg border border-dashed border-apple-line px-4 py-4 text-sm font-medium text-apple-blue"
+          >
+            <Plus className="mr-1 inline h-4 w-4" /> เพิ่ม Checklist รายการแรก
+          </button>
+        ) : null}
+        {checklistError ? (
+          <p className="mt-2 text-sm text-apple-red" role="alert">
+            {checklistError}
+          </p>
+        ) : null}
+      </div>
+
+      {canManageShares ? (
         <div>
-          <div className="mb-2 flex items-center justify-between">
-            <span className="text-sm font-medium text-apple-text">Checklist</span>
+          <span className="text-sm font-medium text-apple-text">แชร์ให้สมาชิก</span>
+          <div className="mt-2 flex gap-2">
+            <select
+              value={nextUserId}
+              onChange={(event) => setNextUserId(event.target.value)}
+              className="min-w-0 flex-1 rounded-lg border border-apple-line px-4 py-3 text-sm"
+              aria-label="เลือกสมาชิก"
+            >
+              <option value="">เลือกชื่อสมาชิก</option>
+              {availableUsers.map((user) => (
+                <option key={user.id} value={user.id}>
+                  {user.display_name || user.email}
+                </option>
+              ))}
+            </select>
             <button
               type="button"
-              className="flex items-center gap-1 rounded-lg bg-apple-bg px-3 py-2 text-xs font-semibold"
-              onClick={() => setItems([...items, { item_name: "", weight: 1 }])}
+              disabled={!nextUserId}
+              onClick={addShare}
+              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-apple-blue text-white disabled:opacity-40"
+              title="เพิ่มสมาชิก"
+              aria-label="เพิ่มสมาชิก"
             >
-              <Plus className="h-4 w-4" /> เพิ่ม
+              <UserPlus className="h-4 w-4" />
             </button>
           </div>
-          <div className="space-y-2">
-            {items.map((item, index) => (
-              <div key={index} className="grid grid-cols-[1fr_88px_40px] gap-2 rounded-lg bg-apple-bg p-2">
-                <input
-                  required
-                  value={item.item_name}
-                  onChange={(event) =>
-                    setItems(items.map((row, rowIndex) => (rowIndex === index ? { ...row, item_name: event.target.value } : row)))
-                  }
-                  className="min-w-0 rounded-md border border-transparent bg-white px-3 py-2 text-sm"
-                  placeholder="รายการ"
-                />
-                <input
-                  min={0}
-                  step="0.01"
-                  type="number"
-                  value={item.weight}
-                  onChange={(event) =>
-                    setItems(items.map((row, rowIndex) => (rowIndex === index ? { ...row, weight: Number(event.target.value) } : row)))
-                  }
-                  className="min-w-0 rounded-md border border-transparent bg-white px-3 py-2 text-sm"
-                  aria-label="น้ำหนัก"
-                />
-                <button
-                  type="button"
-                  className="rounded-md bg-white text-apple-red disabled:opacity-40"
-                  disabled={items.length === 1}
-                  onClick={() => setItems(items.filter((_, rowIndex) => rowIndex !== index))}
-                  title="ลบรายการ"
-                  aria-label="ลบรายการ"
-                >
-                  <Trash2 className="mx-auto h-4 w-4" />
-                </button>
-              </div>
-            ))}
+          <div className="mt-2 space-y-2">
+            {shares.map((share) => {
+              const user = users.find((row) => row.id === share.user_id);
+              return (
+                <div key={share.user_id} className="grid grid-cols-[1fr_145px_40px] items-center gap-2 rounded-lg bg-apple-bg p-2">
+                  <span className="truncate px-2 text-sm font-medium">{user?.display_name || user?.email || "สมาชิก"}</span>
+                  <select
+                    value={share.permission}
+                    onChange={(event) =>
+                      setShares(
+                        shares.map((row) =>
+                          row.user_id === share.user_id
+                            ? { ...row, permission: event.target.value as ShareInput["permission"] }
+                            : row
+                        )
+                      )
+                    }
+                    className="rounded-md border-0 bg-white px-2 py-2 text-xs"
+                  >
+                    {Object.entries(permissionLabels).map(([value, label]) => (
+                      <option key={value} value={value}>
+                        {label}
+                      </option>
+                    ))}
+                  </select>
+                  <button
+                    type="button"
+                    className="flex h-9 w-9 items-center justify-center rounded-md bg-white text-apple-red"
+                    onClick={() => setShares(shares.filter((row) => row.user_id !== share.user_id))}
+                    title="นำสมาชิกออก"
+                    aria-label="นำสมาชิกออก"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+              );
+            })}
           </div>
         </div>
       ) : null}
-
-      {canManageShares ? <div>
-        <span className="text-sm font-medium text-apple-text">แชร์ให้สมาชิก</span>
-        <div className="mt-2 flex gap-2">
-          <select
-            value={nextUserId}
-            onChange={(event) => setNextUserId(event.target.value)}
-            className="min-w-0 flex-1 rounded-lg border border-apple-line px-4 py-3 text-sm"
-            aria-label="เลือกสมาชิก"
-          >
-            <option value="">เลือกชื่อสมาชิก</option>
-            {availableUsers.map((user) => (
-              <option key={user.id} value={user.id}>
-                {user.display_name || user.email}
-              </option>
-            ))}
-          </select>
-          <button
-            type="button"
-            disabled={!nextUserId}
-            onClick={addShare}
-            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-apple-blue text-white disabled:opacity-40"
-            title="เพิ่มสมาชิก"
-            aria-label="เพิ่มสมาชิก"
-          >
-            <UserPlus className="h-4 w-4" />
-          </button>
-        </div>
-        <div className="mt-2 space-y-2">
-          {shares.map((share) => {
-            const user = users.find((row) => row.id === share.user_id);
-            return (
-              <div key={share.user_id} className="grid grid-cols-[1fr_145px_40px] items-center gap-2 rounded-lg bg-apple-bg p-2">
-                <span className="truncate px-2 text-sm font-medium">{user?.display_name || user?.email || "สมาชิก"}</span>
-                <select
-                  value={share.permission}
-                  onChange={(event) =>
-                    setShares(
-                      shares.map((row) =>
-                        row.user_id === share.user_id
-                          ? { ...row, permission: event.target.value as ShareInput["permission"] }
-                          : row
-                      )
-                    )
-                  }
-                  className="rounded-md border-0 bg-white px-2 py-2 text-xs"
-                >
-                  {Object.entries(permissionLabels).map(([value, label]) => (
-                    <option key={value} value={value}>
-                      {label}
-                    </option>
-                  ))}
-                </select>
-                <button
-                  type="button"
-                  className="flex h-9 w-9 items-center justify-center rounded-md bg-white text-apple-red"
-                  onClick={() => setShares(shares.filter((row) => row.user_id !== share.user_id))}
-                  title="นำสมาชิกออก"
-                  aria-label="นำสมาชิกออก"
-                >
-                  <X className="h-4 w-4" />
-                </button>
-              </div>
-            );
-          })}
-        </div>
-      </div> : null}
 
       <div className="flex justify-end gap-3 pt-2">
         <button type="button" className="rounded-lg bg-apple-bg px-5 py-2.5 text-sm font-semibold" onClick={onClose}>

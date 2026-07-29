@@ -4,7 +4,7 @@
 
 1. สร้าง Project ที่ Supabase และเลือก Region ใกล้ผู้ใช้ เช่น Singapore
 2. ไปที่ `SQL Editor`
-3. รัน `supabase/migrations/001_initial_schema.sql`
+3. รันไฟล์ใน `supabase/migrations` ตามลำดับ ตั้งแต่ `001_initial_schema.sql` เป็นต้นไป
 4. รัน `supabase/seed.sql`
 5. ไปที่ `Authentication > Providers` และเปิด Email
 6. ไปที่ `Project Settings > API` เพื่อเก็บ Project URL, anon key และ service role key

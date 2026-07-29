@@ -153,6 +153,17 @@ export type Database = {
         };
         Returns: Database["public"]["Tables"]["tasks"]["Row"];
       };
+      update_task_with_items: {
+        Args: {
+          target_task_id: string;
+          next_task_name: string;
+          next_description: string;
+          next_category_id: string;
+          next_checklist_items: Json;
+          next_task_shares?: Json | null;
+        };
+        Returns: Database["public"]["Tables"]["tasks"]["Row"];
+      };
       set_task_shares: {
         Args: { target_task_id: string; next_task_shares: Json };
         Returns: number;

@@ -23,8 +23,17 @@ export const taskInputSchema = z.object({
     .refine((rows) => new Set(rows.map((row) => row.user_id)).size === rows.length, "ไม่สามารถเลือกสมาชิกซ้ำได้")
 });
 
-export const taskUpdateSchema = taskInputSchema.partial().extend({
-  checklist_items: z.array(checklistInputSchema.extend({ id: uuidSchema.optional(), sort_order: z.number().optional() })).optional()
+export const taskUpdateSchema = taskInputSchema.omit({ shares: true }).extend({
+  checklist_items: z
+    .array(
+      checklistInputSchema.extend({
+        id: uuidSchema.optional(),
+        is_checked: z.boolean(),
+        sort_order: z.number().int().positive()
+      })
+    )
+    .min(1, "ต้องมี Checklist อย่างน้อย 1 รายการ"),
+  shares: taskInputSchema.shape.shares.optional()
 });
 
 export const shareSchema = z.object({

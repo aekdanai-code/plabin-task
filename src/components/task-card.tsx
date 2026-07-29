@@ -64,7 +64,7 @@ export function TaskCard({
             <div className="h-full rounded-full bg-apple-blue transition-all duration-300" style={{ width: `${progress}%` }} />
           </div>
         </div>
-        <div className="mt-5 flex items-center justify-between gap-3">
+        <div className="mt-5">
           <div className="flex -space-x-2">
             {(task.collaborators ?? []).slice(0, 3).map((person) => (
               <span key={person.id} className="flex h-8 w-8 items-center justify-center rounded-full border-2 border-white bg-apple-bg text-[11px] font-semibold text-apple-text">
@@ -77,7 +77,7 @@ export function TaskCard({
               </span>
             ) : null}
           </div>
-          <time className="text-xs text-apple-muted" title={formatThaiDate(task.updated_at)}>
+          <time className="mt-3 block text-left text-xs text-apple-muted" title={formatThaiDate(task.updated_at)}>
             {relativeThaiTime(task.updated_at)}
           </time>
         </div>
