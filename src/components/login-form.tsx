@@ -12,35 +12,48 @@ export function LoginForm({ mode }: { mode: "login" | "register" }) {
   const [isPending, startTransition] = useTransition();
 
   function onSubmit(formData: FormData) {
+    if (isPending) return;
     startTransition(async () => {
       const email = String(formData.get("email") ?? "").trim().toLowerCase();
       const password = String(formData.get("password") ?? "");
       const displayName = String(formData.get("display_name") ?? "").trim();
-      const supabase = createClient();
+      try {
+        const supabase = createClient();
+        const response =
+          mode === "login"
+            ? await supabase.auth.signInWithPassword({ email, password })
+            : await supabase.auth.signUp({
+                email,
+                password,
+                options: { data: { display_name: displayName || email.split("@")[0] } }
+              });
 
-      const response =
-        mode === "login"
-          ? await supabase.auth.signInWithPassword({ email, password })
-          : await supabase.auth.signUp({
-              email,
-              password,
-              options: { data: { display_name: displayName || email.split("@")[0] } }
-            });
+        if (response.error) {
+          toast.error(response.error.message);
+          return;
+        }
 
-      if (response.error) {
-        toast.error(response.error.message);
-        return;
+        if (!remember) {
+          sessionStorage.setItem("plabin-session-only", "true");
+        } else {
+          sessionStorage.removeItem("plabin-session-only");
+        }
+
+        if (mode === "register" && !response.data.session) {
+          toast.success("สมัครสมาชิกสำเร็จ กรุณายืนยันอีเมลก่อนเข้าสู่ระบบ");
+          router.replace("/login");
+        } else {
+          toast.success(mode === "login" ? "เข้าสู่ระบบสำเร็จ" : "สร้างบัญชีสำเร็จ");
+          router.replace(searchParams.get("next") || "/");
+        }
+        router.refresh();
+      } catch (error) {
+        const message =
+          error instanceof Error && error.message === "SUPABASE_NOT_CONFIGURED"
+            ? "ยังไม่ได้ตั้งค่า Supabase ในไฟล์ .env.local"
+            : "เชื่อมต่อ Supabase ไม่สำเร็จ กรุณาตรวจอินเทอร์เน็ตแล้วลองใหม่";
+        toast.error(message);
       }
-
-      if (!remember) {
-        sessionStorage.setItem("plabin-session-only", "true");
-      } else {
-        sessionStorage.removeItem("plabin-session-only");
-      }
-
-      toast.success(mode === "login" ? "เข้าสู่ระบบสำเร็จ" : "สร้างบัญชีสำเร็จ");
-      router.replace(searchParams.get("next") || "/");
-      router.refresh();
     });
   }
 
