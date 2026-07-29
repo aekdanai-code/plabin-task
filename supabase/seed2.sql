@@ -6,6 +6,8 @@
 --   - plabin2025@gmail.com
 --   - supeerat.pom@gmail.com
 -- The script is transactional and idempotent. Missing Auth users stop the import before any data changes.
+-- Invalid source CategoryID ebe2f175-bbb2-4fe7-b556-3a5ddads060c was normalized to
+-- ebe2f175-bbb2-4fe7-b556-3a5ddad5060c (the source contained a non-hex "s").
 
 begin;
 
@@ -54,7 +56,7 @@ begin
   ('26c84bd2-51b7-4f0c-b00e-4c7c545c5869'::uuid, 'สินค้าใหม่'),
   ('f5a6a64a-1c78-4f1e-9c16-10dee0a32083'::uuid, 'สต๊อกสินค้า'),
   ('ebe2f175-bbb2-4fe7-b556-3a53b7b1060c'::uuid, 'งานทั่วไป'),
-  ('ebe2f175-bbb2-4fe7-b556-3a5ddads060c'::uuid, 'งานระบบ'),
+  ('ebe2f175-bbb2-4fe7-b556-3a5ddad5060c'::uuid, 'งานระบบ'),
   ('10f28386-924a-4e2b-ad34-c2b30758b539'::uuid, 'งานออกแบบ'),
   ('861f1c00-ed2e-44a1-811b-1fc8eab8acf8'::uuid, 'Marketplace'),
   ('1ade9bf9-4895-481c-971a-bcb81ad18705'::uuid, 'งานกราฟิก')
@@ -73,7 +75,7 @@ with source(id, category_name) as (
   ('26c84bd2-51b7-4f0c-b00e-4c7c545c5869'::uuid, 'สินค้าใหม่'),
   ('f5a6a64a-1c78-4f1e-9c16-10dee0a32083'::uuid, 'สต๊อกสินค้า'),
   ('ebe2f175-bbb2-4fe7-b556-3a53b7b1060c'::uuid, 'งานทั่วไป'),
-  ('ebe2f175-bbb2-4fe7-b556-3a5ddads060c'::uuid, 'งานระบบ'),
+  ('ebe2f175-bbb2-4fe7-b556-3a5ddad5060c'::uuid, 'งานระบบ'),
   ('10f28386-924a-4e2b-ad34-c2b30758b539'::uuid, 'งานออกแบบ'),
   ('861f1c00-ed2e-44a1-811b-1fc8eab8acf8'::uuid, 'Marketplace'),
   ('1ade9bf9-4895-481c-971a-bcb81ad18705'::uuid, 'งานกราฟิก')
@@ -89,7 +91,7 @@ values
   ('26c84bd2-51b7-4f0c-b00e-4c7c545c5869'::uuid, 'สินค้าใหม่', '#303085', null, 2, true, '2026-07-14T15:33:45.844+07:00'::timestamptz, '2026-07-14T15:33:45.844+07:00'::timestamptz),
   ('f5a6a64a-1c78-4f1e-9c16-10dee0a32083'::uuid, 'สต๊อกสินค้า', '#8f533e', null, 3, true, '2026-07-14T15:33:46.719+07:00'::timestamptz, '2026-07-14T15:33:46.719+07:00'::timestamptz),
   ('ebe2f175-bbb2-4fe7-b556-3a53b7b1060c'::uuid, 'งานทั่วไป', '#8E8E93', null, 1, true, '2026-07-14T15:33:47.034+07:00'::timestamptz, '2026-07-14T15:33:47.034+07:00'::timestamptz),
-  ('ebe2f175-bbb2-4fe7-b556-3a5ddads060c'::uuid, 'งานระบบ', '#FFBD59', null, 4, true, '2026-07-14T15:33:47.034+07:00'::timestamptz, '2026-07-14T15:33:47.034+07:00'::timestamptz),
+  ('ebe2f175-bbb2-4fe7-b556-3a5ddad5060c'::uuid, 'งานระบบ', '#FFBD59', null, 4, true, '2026-07-14T15:33:47.034+07:00'::timestamptz, '2026-07-14T15:33:47.034+07:00'::timestamptz),
   ('10f28386-924a-4e2b-ad34-c2b30758b539'::uuid, 'งานออกแบบ', '#AF52DE', null, 2, false, '2026-07-16T10:08:31.482+07:00'::timestamptz, '2026-07-25T10:35:06.146+07:00'::timestamptz),
   ('861f1c00-ed2e-44a1-811b-1fc8eab8acf8'::uuid, 'Marketplace', '#007AFF', null, 3, true, '2026-07-16T10:08:31.848+07:00'::timestamptz, '2026-07-16T10:08:31.848+07:00'::timestamptz),
   ('1ade9bf9-4895-481c-971a-bcb81ad18705'::uuid, 'งานกราฟิก', '#AF52DE', null, 2, true, '2026-07-24T15:11:18.755+07:00'::timestamptz, '2026-07-24T15:11:18.755+07:00'::timestamptz)
