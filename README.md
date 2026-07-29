@@ -1,0 +1,47 @@
+# Plabin Task
+
+Plabin Task เวอร์ชัน Next.js + Supabase สำหรับ deploy ผ่าน GitHub และ Vercel โดยย้ายความสามารถจาก Google Apps Script เดิมมาไว้ใน Web App นี้
+
+## ความสามารถ
+
+- Supabase Auth และ Role `Admin` / `User`
+- Task, Category, Checklist แบบ Weight และ Progress อัตโนมัติ
+- สถานะ `ที่ต้องทำ` สีน้ำเงิน, `กำลังดำเนินการ` สีส้ม, `เสร็จสิ้น` สีเขียว
+- สีประจำ Category บน Task card
+- Share ด้วยสิทธิ์ Viewer, Checker และ Editor
+- เลือกผู้รับ Share จาก dropdown ที่แสดง Display Name และเลือกซ้ำไม่ได้
+- Clone Task จาก card โดยเริ่ม Progress ใหม่และไม่คัดลอกผู้รับ Share
+- Notification ภายใน App เมื่อได้รับ Share
+- ปุ่ม `แจ้งทีม` ใน Task ที่มีผู้รับ Share โดยไม่แจ้งกลับหาผู้กด
+- Search, filter, Archive/Restore และ sort เริ่มต้นด้วย `แก้ไขล่าสุด`
+- เมนู Admin สำหรับจัดการ Category และ Users
+- เก็บ Activity Log ในฐานข้อมูล แต่ไม่แสดงในหน้า Web App
+- Row Level Security, explicit Data API grants และ server-only service role key
+
+## เริ่มต้น
+
+```bash
+npm ci
+cp .env.example .env.local
+npm run dev
+```
+
+เปิด `http://localhost:3000`
+
+## ฐานข้อมูล
+
+รันไฟล์ตามลำดับใน Supabase SQL Editor:
+
+1. `supabase/migrations/001_initial_schema.sql`
+2. `supabase/seed.sql`
+
+ผู้ใช้คนแรกที่สมัครจะเป็น `ADMIN` อัตโนมัติ ผู้ใช้หลังจากนั้นเป็น `USER`
+
+## ตรวจสอบก่อน Deploy
+
+```bash
+npm run typecheck
+npm run build
+```
+
+ดูขั้นตอน Supabase, GitHub และ Vercel แบบละเอียดใน [INSTALLATION_GUIDE.md](./INSTALLATION_GUIDE.md)
