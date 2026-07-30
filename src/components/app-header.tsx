@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Bell, BellRing, CheckCheck, ChevronLeft, LogOut, Settings, SlidersHorizontal, Users } from "lucide-react";
@@ -225,12 +226,20 @@ export function AppHeader({
             </Link>
           </>
         ) : null}
-        <div className="flex items-center gap-2 rounded-lg bg-apple-bg py-1 pl-1 pr-3">
-          <span className="flex h-9 w-9 items-center justify-center rounded-md bg-white text-xs font-semibold text-apple-text">
-            {initials(user.display_name || user.email)}
+        <Link
+          href="/profile"
+          className="flex items-center gap-2 rounded-lg bg-apple-bg py-1 pl-1 pr-3 hover:bg-black/5"
+          title="โปรไฟล์ของฉัน"
+        >
+          <span className="relative flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-md bg-white text-xs font-semibold text-apple-text">
+            {user.avatar_url ? (
+              <Image unoptimized fill sizes="36px" src={user.avatar_url} alt="" className="object-cover" />
+            ) : (
+              initials(user.display_name || user.email)
+            )}
           </span>
           <span className="hidden max-w-32 truncate text-sm font-medium text-apple-text md:block">{user.display_name || user.email}</span>
-        </div>
+        </Link>
         <form action={logout}>
           <button className="flex h-10 w-10 items-center justify-center rounded-lg bg-apple-bg text-apple-muted hover:text-apple-red" title="ออกจากระบบ" aria-label="ออกจากระบบ">
             <LogOut className="h-5 w-5" />

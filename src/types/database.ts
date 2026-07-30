@@ -9,11 +9,13 @@ export type Database = {
           email: string;
           display_name: string | null;
           avatar_url: string | null;
+          contact_info: string | null;
           role: "ADMIN" | "USER";
           is_active: boolean;
           created_at: string;
           updated_at: string;
           last_login_at: string | null;
+          password_changed_at: string | null;
         };
         Insert: Partial<Database["public"]["Tables"]["profiles"]["Row"]> & { id: string; email: string };
         Update: Partial<Database["public"]["Tables"]["profiles"]["Row"]>;
@@ -204,6 +206,18 @@ export type Database = {
       notify_task_team: {
         Args: { target_task_id: string };
         Returns: number;
+      };
+      update_own_profile: {
+        Args: { next_display_name: string; next_contact_info: string | null };
+        Returns: Database["public"]["Tables"]["profiles"]["Row"];
+      };
+      set_own_avatar_url: {
+        Args: { next_avatar_url: string };
+        Returns: Database["public"]["Tables"]["profiles"]["Row"];
+      };
+      mark_password_changed: {
+        Args: Record<string, never>;
+        Returns: string;
       };
     };
     Enums: {

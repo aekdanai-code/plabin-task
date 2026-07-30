@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
@@ -10,6 +10,11 @@ export function LoginForm({ mode }: { mode: "login" | "register" }) {
   const searchParams = useSearchParams();
   const [remember, setRemember] = useState(true);
   const [isPending, startTransition] = useTransition();
+
+  useEffect(() => {
+    const error = searchParams.get("error");
+    if (error) toast.error(error);
+  }, [searchParams]);
 
   function onSubmit(formData: FormData) {
     if (isPending) return;

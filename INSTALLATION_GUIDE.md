@@ -10,6 +10,7 @@
 6. ไปที่ `Project Settings > API` เพื่อเก็บ Project URL, anon key และ service role key
 
 Migration เปิด RLS ทุกตารางใน `public`, จำกัด function ที่เป็น `security definer` และกำหนด `GRANT` ให้ role `authenticated` ไว้แล้ว ห้ามนำ service role key ไปใช้ใน Client Component
+หากใช้ระบบเปลี่ยนรหัสผ่านใน Production ให้ตั้ง Custom SMTP ที่ `Authentication > SMTP Settings` เพื่อให้ส่งอีเมลได้ตามปริมาณใช้งานจริง
 
 ## 2. ตั้งค่า Local
 
@@ -98,4 +99,4 @@ npm run typecheck
 npm run build
 ```
 
-หลัง Deploy ให้ทดสอบ Login, Share, Notification, Role, Clone, Archive และ Checklist อีกครั้งด้วยบัญชี Admin/User คนละ Browser profile
+หลัง Deploy ให้ทดสอบ Login, Profile, อัปโหลดรูป, อีเมลเปลี่ยนรหัสผ่าน, Share, Notification, Role, Clone, Archive และ Checklist อีกครั้งด้วยบัญชี Admin/User คนละ Browser profile

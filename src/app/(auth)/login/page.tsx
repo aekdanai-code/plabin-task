@@ -17,6 +17,11 @@ export default function LoginPage() {
         <Suspense fallback={<div className="h-40 rounded-2xl bg-apple-bg" />}>
           <LoginForm mode="login" />
         </Suspense>
+        <p className="mt-4 text-center text-sm">
+          <Link className="font-medium text-apple-blue hover:underline" href="/forgot-password">
+            ลืมรหัสผ่าน?
+          </Link>
+        </p>
         <p className="mt-6 text-center text-sm text-apple-muted">
           ยังไม่มีบัญชี?{" "}
           <Link className="font-medium text-apple-blue hover:underline" href="/register">

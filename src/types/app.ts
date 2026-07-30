@@ -7,11 +7,13 @@ export type Profile = {
   email: string;
   display_name: string | null;
   avatar_url: string | null;
+  contact_info: string | null;
   role: AppRole;
   is_active: boolean;
   created_at: string;
   updated_at: string;
   last_login_at: string | null;
+  password_changed_at: string | null;
 };
 
 export type Category = {

@@ -57,3 +57,18 @@ export const notificationPreferencesSchema = z.object({
   task_shared: z.boolean(),
   task_updated: z.boolean()
 });
+
+export const profileUpdateSchema = z.object({
+  display_name: z.string().trim().min(1, "กรุณาระบุชื่อที่แสดง").max(120, "ชื่อที่แสดงยาวเกินไป"),
+  contact_info: z.string().trim().max(200, "ข้อมูลติดต่อยาวเกินไป").optional().nullable()
+});
+
+export const passwordUpdateSchema = z
+  .object({
+    password: z.string().min(8, "รหัสผ่านต้องมีอย่างน้อย 8 ตัวอักษร").max(72, "รหัสผ่านยาวเกินไป"),
+    confirm_password: z.string()
+  })
+  .refine((value) => value.password === value.confirm_password, {
+    message: "รหัสผ่านทั้งสองช่องไม่ตรงกัน",
+    path: ["confirm_password"]
+  });
