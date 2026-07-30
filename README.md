@@ -34,6 +34,8 @@ npm run dev
 
 1. `supabase/migrations/001_initial_schema.sql`
 2. `supabase/migrations/002_update_task_with_items.sql`
+3. `supabase/migrations/003_notification_center_idempotency.sql`
+4. `supabase/migrations/004_clone_task_idempotency.sql`
 2. `supabase/seed.sql`
 
 ผู้ใช้คนแรกที่สมัครจะเป็น `ADMIN` อัตโนมัติ ผู้ใช้หลังจากนั้นเป็น `USER`

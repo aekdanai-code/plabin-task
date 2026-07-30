@@ -46,23 +46,19 @@ export async function updateChecklistItem(itemId: string, payload: unknown) {
   }
 }
 
-export async function toggleChecklistItem(itemId: string, isChecked: boolean) {
+export async function toggleChecklistItem(itemId: string, isChecked: boolean, requestId: string) {
   try {
     uuidSchema.parse(itemId);
-    const user = await requireUser();
+    uuidSchema.parse(requestId);
+    await requireUser();
     const supabase = await createClient();
-    const { data, error } = await supabase
-      .from("checklist_items")
-      .update({
-        is_checked: isChecked,
-        checked_by: isChecked ? user.id : null,
-        checked_at: isChecked ? new Date().toISOString() : null
-      })
-      .eq("id", itemId)
-      .select("*")
-      .single();
+    const { data, error } = await supabase.rpc("toggle_checklist_item", {
+      target_item_id: itemId,
+      next_checked: isChecked,
+      request_id: requestId
+    });
     if (error || !data) return fail("TOGGLE_ITEM_FAILED", error?.message ?? "อัปเดตรายการไม่สำเร็จ");
-    await afterChecklistMutation(data.task_id, user.id, isChecked ? "CHECK_ITEM" : "UNCHECK_ITEM");
+    revalidatePath("/");
     return ok(data, "อัปเดตรายการสำเร็จ");
   } catch (error) {
     return toErrorResult(error);
@@ -88,21 +84,21 @@ export async function deleteChecklistItem(itemId: string) {
   }
 }
 
-export async function reorderChecklistItems(taskId: string, orderedItemIds: string[]) {
+export async function reorderChecklistItems(taskId: string, orderedItemIds: string[], requestId: string) {
   try {
     uuidSchema.parse(taskId);
+    uuidSchema.parse(requestId);
     orderedItemIds.forEach((id) => uuidSchema.parse(id));
-    const user = await requireUser();
+    await requireUser();
     const supabase = await createClient();
-
-    await Promise.all(
-      orderedItemIds.map((id, index) =>
-        supabase.from("checklist_items").update({ sort_order: index + 1 }).eq("id", id).eq("task_id", taskId)
-      )
-    );
-
-    await afterChecklistMutation(taskId, user.id, "REORDER_ITEMS");
-    return ok({ orderedItemIds }, "เรียงลำดับสำเร็จ");
+    const { data, error } = await supabase.rpc("reorder_checklist_items", {
+      target_task_id: taskId,
+      ordered_item_ids: orderedItemIds,
+      request_id: requestId
+    });
+    if (error || !data) return fail("REORDER_ITEMS_FAILED", error?.message ?? "เรียงลำดับไม่สำเร็จ");
+    revalidatePath("/");
+    return ok({ orderedItemIds: data }, "เรียงลำดับสำเร็จ");
   } catch (error) {
     return toErrorResult(error);
   }

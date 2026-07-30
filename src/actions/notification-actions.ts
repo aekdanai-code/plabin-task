@@ -4,8 +4,8 @@ import { revalidatePath } from "next/cache";
 import { requireUser } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { fail, ok, toErrorResult } from "@/lib/result";
-import { uuidSchema } from "@/lib/validators";
-import type { AppNotification } from "@/types/app";
+import { notificationPreferencesSchema, uuidSchema } from "@/lib/validators";
+import type { AppNotification, NotificationPreferences } from "@/types/app";
 
 export async function getNotifications() {
   try {
@@ -15,9 +15,48 @@ export async function getNotifications() {
       .from("notifications")
       .select("*")
       .order("created_at", { ascending: false })
-      .limit(30);
+      .limit(100);
     if (error) return fail("LOAD_NOTIFICATIONS_FAILED", error.message);
     return ok((data ?? []) as AppNotification[], "โหลดการแจ้งเตือนสำเร็จ");
+  } catch (error) {
+    return toErrorResult(error);
+  }
+}
+
+export async function getNotificationPreferences() {
+  try {
+    const user = await requireUser();
+    const supabase = await createClient();
+    const { data, error } = await supabase
+      .from("notification_preferences")
+      .select("task_shared,task_updated")
+      .eq("user_id", user.id)
+      .maybeSingle();
+    if (error) return fail("LOAD_NOTIFICATION_PREFERENCES_FAILED", error.message);
+    return ok(
+      (data ?? { task_shared: true, task_updated: true }) as NotificationPreferences,
+      "โหลดการตั้งค่าการแจ้งเตือนสำเร็จ"
+    );
+  } catch (error) {
+    return toErrorResult(error);
+  }
+}
+
+export async function updateNotificationPreferences(payload: unknown) {
+  try {
+    const input = notificationPreferencesSchema.parse(payload);
+    const user = await requireUser();
+    const supabase = await createClient();
+    const { data, error } = await supabase
+      .from("notification_preferences")
+      .upsert({ user_id: user.id, ...input }, { onConflict: "user_id" })
+      .select("task_shared,task_updated")
+      .single();
+    if (error || !data) {
+      return fail("UPDATE_NOTIFICATION_PREFERENCES_FAILED", error?.message ?? "บันทึกการตั้งค่าไม่สำเร็จ");
+    }
+    revalidatePath("/");
+    return ok(data as NotificationPreferences, "บันทึกการตั้งค่าการแจ้งเตือนแล้ว");
   } catch (error) {
     return toErrorResult(error);
   }

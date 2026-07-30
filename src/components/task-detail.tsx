@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
 import { BellRing, Pencil, X } from "lucide-react";
 import { toast } from "sonner";
 import { notifyTaskTeam } from "@/actions/notification-actions";
@@ -8,7 +8,7 @@ import { ChecklistEditor } from "@/components/checklist-editor";
 import { TaskForm } from "@/components/task-form";
 import { formatThaiDate } from "@/lib/format";
 import { canCheckTask, canEditTask, taskAccess } from "@/lib/permissions";
-import type { Category, Profile, TaskDetail } from "@/types/app";
+import type { Category, ChecklistItem, Profile, TaskDetail, TaskStatus } from "@/types/app";
 
 const statusStyle = {
   TODO: "bg-apple-blue/12 text-apple-blue",
@@ -36,8 +36,27 @@ export function TaskDetailPanel({
   onClose: () => void;
 }) {
   const [editing, setEditing] = useState(false);
+  const [progress, setProgress] = useState(Number(task.progress));
+  const [status, setStatus] = useState<TaskStatus>(task.status);
   const [isPending, startTransition] = useTransition();
   const access = taskAccess(task, currentUser);
+  const visibleChecklist = useMemo(
+    () => task.checklist_items.filter((item) => !item.is_deleted),
+    [task.checklist_items]
+  );
+
+  useEffect(() => {
+    setProgress(Number(task.progress));
+    setStatus(task.status);
+  }, [task]);
+
+  function updateChecklistProgress(items: ChecklistItem[]) {
+    const totalWeight = items.reduce((total, item) => total + Number(item.weight), 0);
+    const completedWeight = items.reduce((total, item) => total + (item.is_checked ? Number(item.weight) : 0), 0);
+    const nextProgress = totalWeight > 0 ? Math.min(100, (completedWeight / totalWeight) * 100) : 0;
+    setProgress(nextProgress);
+    setStatus(nextProgress === 0 ? "TODO" : nextProgress >= 100 ? "COMPLETED" : "IN_PROGRESS");
+  }
 
   function notifyTeam() {
     if (isPending) return;
@@ -81,22 +100,26 @@ export function TaskDetailPanel({
         ) : (
           <>
             <div className="mt-4 flex flex-wrap items-center gap-2">
-              <span className={`rounded-md px-3 py-1 text-xs font-semibold ${statusStyle[task.status]}`}>{statusLabel[task.status]}</span>
+              <span className={`rounded-md px-3 py-1 text-xs font-semibold ${statusStyle[status]}`}>{statusLabel[status]}</span>
               <span className="text-xs text-apple-muted">สิทธิ์ {access}</span>
             </div>
             <p className="mt-4 whitespace-pre-wrap text-sm leading-6 text-apple-muted">{task.description || "ไม่มีรายละเอียดเพิ่มเติม"}</p>
             <div className="mt-5 rounded-lg bg-apple-bg p-4">
               <div className="mb-2 flex justify-between text-sm font-medium text-apple-muted">
                 <span>Progress</span>
-                <span>{Math.round(task.progress)}%</span>
+                <span>{Math.round(progress)}%</span>
               </div>
               <div className="h-2 overflow-hidden rounded bg-white">
-                <div className="h-full rounded bg-apple-blue" style={{ width: `${Math.round(task.progress)}%` }} />
+                <div className="h-full rounded bg-apple-blue transition-all duration-300" style={{ width: `${Math.round(progress)}%` }} />
               </div>
             </div>
             <div className="mt-6">
               <h3 className="mb-3 font-semibold text-apple-text">Checklist</h3>
-              <ChecklistEditor items={task.checklist_items.filter((item) => !item.is_deleted)} canCheck={canCheckTask(access)} />
+              <ChecklistEditor
+                items={visibleChecklist}
+                canCheck={canCheckTask(access)}
+                onRowsChange={updateChecklistProgress}
+              />
             </div>
             <div className="mt-6 flex flex-wrap justify-between gap-3 border-t border-apple-line pt-4">
               <p className="self-center text-xs text-apple-muted">อัปเดตล่าสุด {formatThaiDate(task.updated_at)}</p>

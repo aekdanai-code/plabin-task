@@ -121,10 +121,11 @@ export async function getTaskDetail(taskId: string): Promise<ActionResult<TaskDe
   }
 }
 
-export async function createTask(payload: unknown): Promise<ActionResult<TaskSummary>> {
+export async function createTask(payload: unknown, requestId: string): Promise<ActionResult<TaskSummary>> {
   try {
     const input = taskInputSchema.parse(payload);
-    const user = await requireUser();
+    uuidSchema.parse(requestId);
+    await requireUser();
     const supabase = await createClient();
 
     const { data: task, error } = await supabase.rpc("create_task_with_items", {
@@ -132,7 +133,8 @@ export async function createTask(payload: unknown): Promise<ActionResult<TaskSum
       next_description: input.description || "",
       next_category_id: input.category_id,
       next_checklist_items: input.checklist_items,
-      next_task_shares: input.shares
+      next_task_shares: input.shares,
+      request_id: requestId
     });
 
     if (error || !task) return fail("CREATE_TASK_FAILED", error?.message ?? "สร้าง Task ไม่สำเร็จ");
@@ -143,9 +145,10 @@ export async function createTask(payload: unknown): Promise<ActionResult<TaskSum
   }
 }
 
-export async function updateTask(taskId: string, payload: unknown): Promise<ActionResult<TaskSummary>> {
+export async function updateTask(taskId: string, payload: unknown, requestId: string): Promise<ActionResult<TaskSummary>> {
   try {
     uuidSchema.parse(taskId);
+    uuidSchema.parse(requestId);
     const input = taskUpdateSchema.parse(payload);
     await requireUser();
     const supabase = await createClient();
@@ -156,7 +159,8 @@ export async function updateTask(taskId: string, payload: unknown): Promise<Acti
       next_description: input.description || "",
       next_category_id: input.category_id,
       next_checklist_items: input.checklist_items,
-      ...(input.shares ? { next_task_shares: input.shares } : {})
+      next_task_shares: input.shares ?? null,
+      request_id: requestId
     });
 
     if (error || !data) return fail("UPDATE_TASK_FAILED", error?.message ?? "แก้ไข Task ไม่สำเร็จ");
@@ -167,14 +171,16 @@ export async function updateTask(taskId: string, payload: unknown): Promise<Acti
   }
 }
 
-export async function cloneTask(taskId: string, taskName: string): Promise<ActionResult<TaskSummary>> {
+export async function cloneTask(taskId: string, taskName: string, requestId: string): Promise<ActionResult<TaskSummary>> {
   try {
     uuidSchema.parse(taskId);
+    uuidSchema.parse(requestId);
     await requireUser();
     const supabase = await createClient();
     const { data, error } = await supabase.rpc("clone_task", {
       source_task_id: taskId,
-      next_task_name: taskName.trim()
+      next_task_name: taskName.trim(),
+      request_id: requestId
     });
 
     if (error || !data) return fail("CLONE_TASK_FAILED", error?.message ?? "Clone Task ไม่สำเร็จ");

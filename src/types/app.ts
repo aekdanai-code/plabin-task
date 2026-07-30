@@ -63,6 +63,11 @@ export type AppNotification = {
   created_at: string;
 };
 
+export type NotificationPreferences = {
+  task_shared: boolean;
+  task_updated: boolean;
+};
+
 export type TaskSummary = {
   id: string;
   task_name: string;

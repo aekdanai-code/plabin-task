@@ -1,8 +1,8 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { ArchiveRestore, Plus, Search } from "lucide-react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import type { Category, Profile, TaskDetail, TaskSummary } from "@/types/app";
 import { archiveTask, deleteTask, getTaskDetail, restoreTask } from "@/actions/task-actions";
@@ -32,6 +32,9 @@ const filters = [
 
 export function TaskDashboard({ initial }: { initial: InitialData }) {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const requestedTaskId = searchParams.get("task");
+  const openedTaskRef = useRef<string | null>(null);
   const [activeFilter, setActiveFilter] = useState("all");
   const [categoryId, setCategoryId] = useState("ALL");
   const [sort, setSort] = useState<"updated_desc" | "created_desc">("updated_desc");
@@ -41,6 +44,23 @@ export function TaskDashboard({ initial }: { initial: InitialData }) {
   const [cloneTarget, setCloneTarget] = useState<TaskSummary | null>(null);
   const [confirm, setConfirm] = useState<{ type: "archive" | "delete"; task: TaskSummary } | null>(null);
   const [isPending, startTransition] = useTransition();
+
+  useEffect(() => {
+    if (!requestedTaskId) {
+      openedTaskRef.current = null;
+      return;
+    }
+    if (openedTaskRef.current === requestedTaskId) return;
+    openedTaskRef.current = requestedTaskId;
+    startTransition(async () => {
+      const result = await getTaskDetail(requestedTaskId);
+      if (result.ok) setDetail(result.data);
+      else {
+        toast.error(result.message);
+        router.replace("/");
+      }
+    });
+  }, [requestedTaskId, router]);
 
   const visibleTasks = useMemo(() => {
     const cleanQuery = query.trim().toLocaleLowerCase("th");
@@ -87,6 +107,11 @@ export function TaskDashboard({ initial }: { initial: InitialData }) {
       if (result.ok) setDetail(result.data);
       else toast.error(result.message);
     });
+  }
+
+  function closeDetail() {
+    setDetail(null);
+    if (requestedTaskId) router.replace("/");
   }
 
   function restore(taskId: string) {
@@ -206,7 +231,7 @@ export function TaskDashboard({ initial }: { initial: InitialData }) {
           currentUser={initial.currentUser}
           categories={initial.categories}
           users={initial.users}
-          onClose={() => setDetail(null)}
+          onClose={closeDetail}
         />
       ) : null}
       <TaskCloneDialog task={cloneTarget} onClose={() => setCloneTarget(null)} />

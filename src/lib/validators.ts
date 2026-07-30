@@ -52,3 +52,8 @@ export const memberUpdateSchema = z.object({
   role: z.enum(["ADMIN", "USER"]).optional(),
   is_active: z.boolean().optional()
 });
+
+export const notificationPreferencesSchema = z.object({
+  task_shared: z.boolean(),
+  task_updated: z.boolean()
+});

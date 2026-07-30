@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { useMemo, useRef, useState } from "react";
 import {
   DndContext,
   KeyboardSensor,
@@ -167,7 +167,9 @@ export function TaskForm({
   );
   const [nextUserId, setNextUserId] = useState("");
   const [checklistError, setChecklistError] = useState("");
-  const [isPending, startTransition] = useTransition();
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const submittingRef = useRef(false);
+  const requestIdRef = useRef<string | null>(null);
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
@@ -210,8 +212,8 @@ export function TaskForm({
     });
   }
 
-  function submit(formData: FormData) {
-    if (isPending) return;
+  async function submit(formData: FormData) {
+    if (submittingRef.current) return;
     if (items.length === 0) {
       setChecklistError("ต้องมี Checklist อย่างน้อย 1 รายการ");
       toast.error("ต้องมี Checklist อย่างน้อย 1 รายการ");
@@ -224,35 +226,50 @@ export function TaskForm({
     }
 
     setChecklistError("");
-    startTransition(async () => {
-      const checklistItems = items.map((item, index) => ({
-        ...(item.id ? { id: item.id } : {}),
-        item_name: item.item_name.trim(),
-        weight: item.weight,
-        is_checked: item.is_checked,
-        sort_order: index + 1
-      }));
-      const payload = {
-        task_name: String(formData.get("task_name")),
-        description: String(formData.get("description") || ""),
-        category_id: String(formData.get("category_id")),
-        checklist_items: checklistItems,
-        ...(canManageShares ? { shares } : {})
-      };
-      const result = initialTask ? await updateTask(initialTask.id, payload) : await createTask(payload);
-      if (result.ok) {
-        toast.success(result.message);
-        if (onSaved) onSaved();
-        else onClose();
-        router.refresh();
-      } else {
-        toast.error(result.message);
-      }
-    });
+    submittingRef.current = true;
+    setIsSubmitting(true);
+    const requestId = requestIdRef.current ?? crypto.randomUUID();
+    requestIdRef.current = requestId;
+    const checklistItems = items.map((item, index) => ({
+      ...(item.id ? { id: item.id } : {}),
+      item_name: item.item_name.trim(),
+      weight: item.weight,
+      is_checked: item.is_checked,
+      sort_order: index + 1
+    }));
+    const payload = {
+      task_name: String(formData.get("task_name")),
+      description: String(formData.get("description") || ""),
+      category_id: String(formData.get("category_id")),
+      checklist_items: checklistItems,
+      ...(canManageShares ? { shares } : {})
+    };
+    const result = initialTask
+      ? await updateTask(initialTask.id, payload, requestId)
+      : await createTask(payload, requestId);
+    if (result.ok) {
+      requestIdRef.current = null;
+      toast.success(result.message);
+      if (onSaved) onSaved();
+      else onClose();
+      router.refresh();
+    } else {
+      submittingRef.current = false;
+      setIsSubmitting(false);
+      toast.error(result.message);
+    }
   }
 
   return (
-    <form action={submit} className="space-y-5">
+    <form
+      action={submit}
+      className="relative space-y-5"
+      aria-busy={isSubmitting}
+      onInput={() => {
+        if (!submittingRef.current) requestIdRef.current = null;
+      }}
+    >
+      {isSubmitting ? <div className="absolute inset-0 z-20 cursor-wait" aria-hidden="true" /> : null}
       <label className="block">
         <span className="text-sm font-medium text-apple-text">
           ชื่อ Task
@@ -414,8 +431,8 @@ export function TaskForm({
         <button type="button" className="rounded-lg bg-apple-bg px-5 py-2.5 text-sm font-semibold" onClick={onClose}>
           ยกเลิก
         </button>
-        <button disabled={isPending} className="rounded-lg bg-apple-blue px-5 py-2.5 text-sm font-semibold text-white disabled:opacity-60">
-          {isPending ? "กำลังบันทึก..." : isEdit ? "บันทึกการแก้ไข" : "บันทึก Task"}
+        <button disabled={isSubmitting} className="rounded-lg bg-apple-blue px-5 py-2.5 text-sm font-semibold text-white disabled:opacity-60">
+          {isSubmitting ? "กำลังบันทึก..." : isEdit ? "บันทึกการแก้ไข" : "บันทึก Task"}
         </button>
       </div>
     </form>

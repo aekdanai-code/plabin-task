@@ -115,6 +115,21 @@ export type Database = {
         };
         Update: Partial<Database["public"]["Tables"]["notifications"]["Row"]>;
       };
+      notification_preferences: {
+        Row: {
+          user_id: string;
+          task_shared: boolean;
+          task_updated: boolean;
+          updated_at: string;
+        };
+        Insert: {
+          user_id: string;
+          task_shared?: boolean;
+          task_updated?: boolean;
+          updated_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["notification_preferences"]["Row"]>;
+      };
       activity_logs: {
         Row: {
           id: string;
@@ -140,7 +155,7 @@ export type Database = {
     Views: Record<string, never>;
     Functions: {
       clone_task: {
-        Args: { source_task_id: string; next_task_name: string };
+        Args: { source_task_id: string; next_task_name: string; request_id: string };
         Returns: Database["public"]["Tables"]["tasks"]["Row"];
       };
       create_task_with_items: {
@@ -150,6 +165,7 @@ export type Database = {
           next_category_id: string;
           next_checklist_items: Json;
           next_task_shares: Json;
+          request_id: string;
         };
         Returns: Database["public"]["Tables"]["tasks"]["Row"];
       };
@@ -160,9 +176,26 @@ export type Database = {
           next_description: string;
           next_category_id: string;
           next_checklist_items: Json;
-          next_task_shares?: Json | null;
+          next_task_shares: Json | null;
+          request_id: string;
         };
         Returns: Database["public"]["Tables"]["tasks"]["Row"];
+      };
+      toggle_checklist_item: {
+        Args: {
+          target_item_id: string;
+          next_checked: boolean;
+          request_id: string;
+        };
+        Returns: Database["public"]["Tables"]["checklist_items"]["Row"];
+      };
+      reorder_checklist_items: {
+        Args: {
+          target_task_id: string;
+          ordered_item_ids: string[];
+          request_id: string;
+        };
+        Returns: string[];
       };
       set_task_shares: {
         Args: { target_task_id: string; next_task_shares: Json };
