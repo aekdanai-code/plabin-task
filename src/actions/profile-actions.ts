@@ -72,14 +72,21 @@ export async function sendOwnPasswordResetLink() {
     const host = headerStore.get("x-forwarded-host") ?? headerStore.get("host");
     const protocol = headerStore.get("x-forwarded-proto") ?? (host?.includes("localhost") ? "http" : "https");
     const configuredOrigin = process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "");
-    const origin = configuredOrigin || (host ? `${protocol}://${host}` : "");
+    const requestOrigin = host ? `${protocol}://${host}` : "";
+    const origin = requestOrigin || configuredOrigin || "";
     if (!origin) return fail("SITE_URL_MISSING", "ไม่พบ URL ของเว็บไซต์สำหรับสร้างลิงก์เปลี่ยนรหัสผ่าน");
 
     const supabase = await createClient();
     const { error } = await supabase.auth.resetPasswordForEmail(user.email, {
       redirectTo: `${origin}/auth/callback?next=/update-password`
     });
-    if (error) return fail("RESET_EMAIL_FAILED", error.message);
+    if (error) {
+      const isRateLimited = error.message.toLowerCase().includes("rate limit");
+      return fail(
+        isRateLimited ? "RESET_EMAIL_RATE_LIMITED" : "RESET_EMAIL_FAILED",
+        isRateLimited ? "ส่งอีเมลบ่อยเกินไป กรุณารอแล้วลองใหม่อีกครั้ง" : error.message
+      );
+    }
     return ok(null, "ส่งลิงก์เปลี่ยนรหัสผ่านไปยังอีเมลแล้ว");
   } catch (error) {
     return toErrorResult(error, "ส่งลิงก์เปลี่ยนรหัสผ่านไม่สำเร็จ");

@@ -19,7 +19,10 @@ export function PasswordResetRequestForm() {
           redirectTo: `${window.location.origin}/auth/callback?next=/update-password`
         });
         if (error) {
-          toast.error(error.message);
+          const message = error.message.toLowerCase().includes("rate limit")
+            ? "ส่งอีเมลบ่อยเกินไป กรุณารอแล้วลองใหม่อีกครั้ง"
+            : error.message;
+          toast.error(message);
           return;
         }
         setSent(true);

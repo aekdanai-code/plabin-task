@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { useRef, useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Camera, KeyRound, LoaderCircle, LogOut, Mail, Save } from "lucide-react";
 import { toast } from "sonner";
@@ -24,6 +24,15 @@ export function ProfileSettings({ user }: { user: Profile }) {
   const [uploading, startUploading] = useTransition();
   const [sendingReset, startSendingReset] = useTransition();
   const [signingOut, startSigningOut] = useTransition();
+  const [resetCooldown, setResetCooldown] = useState(0);
+
+  useEffect(() => {
+    if (resetCooldown <= 0) return;
+    const timer = window.setInterval(() => {
+      setResetCooldown((current) => Math.max(0, current - 1));
+    }, 1000);
+    return () => window.clearInterval(timer);
+  }, [resetCooldown]);
 
   function saveProfile() {
     if (saving || !displayName.trim()) return;
@@ -61,10 +70,15 @@ export function ProfileSettings({ user }: { user: Profile }) {
   }
 
   function sendResetLink() {
-    if (sendingReset) return;
+    if (sendingReset || resetCooldown > 0) return;
     startSendingReset(async () => {
       const result = await sendOwnPasswordResetLink();
-      result.ok ? toast.success(result.message) : toast.error(result.message);
+      if (result.ok) {
+        setResetCooldown(60);
+        toast.success(result.message);
+      } else {
+        toast.error(result.message);
+      }
     });
   }
 
@@ -176,12 +190,12 @@ export function ProfileSettings({ user }: { user: Profile }) {
             </div>
             <button
               type="button"
-              disabled={sendingReset}
+              disabled={sendingReset || resetCooldown > 0}
               onClick={sendResetLink}
               className="flex shrink-0 items-center justify-center gap-2 rounded-lg border border-apple-line px-4 py-2.5 text-sm font-semibold text-apple-text hover:bg-apple-bg disabled:opacity-60"
             >
               {sendingReset ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <KeyRound className="h-4 w-4" />}
-              {sendingReset ? "กำลังส่ง..." : "ส่งลิงก์"}
+              {sendingReset ? "กำลังส่ง..." : resetCooldown > 0 ? `ส่งใหม่ได้ใน ${resetCooldown} วินาที` : "ส่งลิงก์"}
             </button>
           </div>
 
