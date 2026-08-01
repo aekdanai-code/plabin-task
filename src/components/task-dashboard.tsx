@@ -73,7 +73,7 @@ export function TaskDashboard({ initial }: { initial: InitialData }) {
         }
         if (activeFilter === "archive") {
           if (!task.is_archived) return false;
-        } else if (task.is_archived) {
+        } else if (activeFilter !== "COMPLETED" && task.is_archived) {
           return false;
         }
         if (categoryId !== "ALL" && task.category_id !== categoryId) return false;

@@ -8,6 +8,7 @@ import { Bell, BellRing, CheckCheck, ChevronLeft, LogOut, Settings, SlidersHoriz
 import { toast } from "sonner";
 import type { AppNotification, NotificationPreferences, Profile } from "@/types/app";
 import { logout } from "@/actions/auth-actions";
+import { BrandLogo } from "@/components/brand-logo";
 import {
   markAllNotificationsRead,
   markNotificationRead,
@@ -101,7 +102,7 @@ export function AppHeader({
     <header className="sticky top-0 z-30 border-b border-apple-line bg-white/95 backdrop-blur-xl">
       <div className="mx-auto flex max-w-7xl items-center gap-3 px-4 py-3">
         <Link href="/" className="mr-auto flex items-center gap-3" aria-label="ไปหน้า Dashboard">
-          <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-apple-blue font-semibold text-white">P</span>
+          <BrandLogo priority />
           <span className="text-base font-semibold text-apple-text">Plabin Task</span>
         </Link>
 

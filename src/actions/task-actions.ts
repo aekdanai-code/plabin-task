@@ -64,8 +64,9 @@ export async function getTasks(filters: TaskFilters = {}): Promise<ActionResult<
       .select(
         "*, categories(*), checklist_items(id,is_checked), task_shares(permission, profile:profiles!task_shares_user_id_fkey(id,email,display_name,avatar_url))"
       )
-      .eq("is_deleted", false)
-      .eq("is_archived", filters.archived ?? false);
+      .eq("is_deleted", false);
+
+    if (typeof filters.archived === "boolean") query = query.eq("is_archived", filters.archived);
 
     if (filters.scope === "mine") query = query.eq("owner_id", user.id);
     if (filters.status && filters.status !== "ALL") query = query.eq("status", filters.status);
