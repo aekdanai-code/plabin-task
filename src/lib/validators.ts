@@ -54,11 +54,6 @@ export const memberUpdateSchema = z.object({
   is_active: z.boolean().optional()
 });
 
-export const notificationPreferencesSchema = z.object({
-  task_shared: z.boolean(),
-  task_updated: z.boolean()
-});
-
 export const notificationEventTypeSchema = z.enum([
   "TASK_SHARED",
   "TASK_UPDATED_MANUAL",
@@ -72,13 +67,6 @@ export const notificationEventTypeSchema = z.enum([
   "TASK_DUE_SOON",
   "TASK_OVERDUE"
 ]);
-
-export const eventNotificationPreferenceSchema = z.object({
-  event_type: notificationEventTypeSchema,
-  in_app_enabled: z.boolean(),
-  email_enabled: z.boolean(),
-  line_enabled: z.boolean()
-});
 
 export const notificationEventRuleSchema = z.object({
   event_type: notificationEventTypeSchema,

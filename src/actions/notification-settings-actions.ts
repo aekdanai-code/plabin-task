@@ -7,7 +7,6 @@ import { createClient, createServiceClient } from "@/lib/supabase/server";
 import { fail, ok, toErrorResult } from "@/lib/result";
 import {
   emailChannelConfigSchema,
-  eventNotificationPreferenceSchema,
   lineChannelConfigSchema,
   notificationEventRuleSchema,
   notificationSystemSettingsSchema,
@@ -15,7 +14,6 @@ import {
   uuidSchema
 } from "@/lib/validators";
 import type {
-  EventNotificationPreference,
   NotificationEventRule,
   NotificationTemplate,
   UserNotificationChannel
@@ -225,46 +223,24 @@ export async function retryNotificationDelivery(deliveryId: string) {
   }
 }
 
-export async function getOwnNotificationSettings() {
+export async function getOwnLineSettings() {
   try {
     const user = await requireUser();
     const supabase = await createClient();
     const service = createServiceClient();
-    const [preferences, channel, rules, lineConfig] = await Promise.all([
-      supabase.from("user_notification_preferences").select("*").eq("user_id", user.id),
+    const [channel, lineConfig] = await Promise.all([
       supabase.from("user_notification_channels").select("*").eq("user_id", user.id).maybeSingle(),
-      service.from("notification_event_rules").select("event_type,display_name,description,is_enabled").order("event_type"),
       service.from("line_channel_config").select("is_enabled,official_account_name,official_account_basic_id,add_friend_url").eq("id", true).single()
     ]);
-    const error = [preferences, channel, rules, lineConfig].find((result) => result.error)?.error;
-    if (error) return fail("LOAD_OWN_NOTIFICATION_SETTINGS_FAILED", error.message);
+    const error = [channel, lineConfig].find((result) => result.error)?.error;
+    if (error) return fail("LOAD_OWN_LINE_SETTINGS_FAILED", error.message);
     return ok(
       {
-        preferences: (preferences.data ?? []) as EventNotificationPreference[],
         channel: channel.data as UserNotificationChannel | null,
-        rules: rules.data ?? [],
         lineConfig: lineConfig.data
       },
-      "โหลดการตั้งค่าสำเร็จ"
+      "โหลดสถานะการเชื่อม LINE สำเร็จ"
     );
-  } catch (error) {
-    return toErrorResult(error);
-  }
-}
-
-export async function updateOwnEventPreference(payload: unknown) {
-  try {
-    const user = await requireUser();
-    const input = eventNotificationPreferenceSchema.parse(payload);
-    const supabase = await createClient();
-    const { error } = await supabase.from("user_notification_preferences").upsert(
-      { user_id: user.id, ...input },
-      { onConflict: "user_id,event_type" }
-    );
-    if (error) return fail("UPDATE_NOTIFICATION_PREFERENCE_FAILED", error.message);
-    revalidatePath("/profile");
-    revalidatePath("/");
-    return ok(null, "บันทึกการตั้งค่าการแจ้งเตือนแล้ว");
   } catch (error) {
     return toErrorResult(error);
   }

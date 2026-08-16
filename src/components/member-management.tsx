@@ -1,13 +1,13 @@
 "use client";
 
 import { useMemo, useState, useTransition } from "react";
-import { MailPlus, Search } from "lucide-react";
+import { MailPlus, MessageCircle, Search } from "lucide-react";
 import { toast } from "sonner";
 import { deactivateMember, inviteMember, reactivateMember, updateMember } from "@/actions/member-actions";
-import type { Profile } from "@/types/app";
+import type { MemberWithLineStatus } from "@/types/app";
 import { formatThaiDate, initials } from "@/lib/format";
 
-export function MemberManagement({ members, currentUserId }: { members: Profile[]; currentUserId: string }) {
+export function MemberManagement({ members, currentUserId }: { members: MemberWithLineStatus[]; currentUserId: string }) {
   const [query, setQuery] = useState("");
   const [isPending, startTransition] = useTransition();
   const filtered = useMemo(() => {
@@ -24,7 +24,7 @@ export function MemberManagement({ members, currentUserId }: { members: Profile[
     });
   }
 
-  function changeRole(member: Profile, role: "ADMIN" | "USER") {
+  function changeRole(member: MemberWithLineStatus, role: "ADMIN" | "USER") {
     startTransition(async () => {
       const result = await updateMember(member.id, { role });
       if (result.ok) toast.success(result.message);
@@ -32,7 +32,7 @@ export function MemberManagement({ members, currentUserId }: { members: Profile[
     });
   }
 
-  function toggleActive(member: Profile) {
+  function toggleActive(member: MemberWithLineStatus) {
     startTransition(async () => {
       const result = member.is_active ? await deactivateMember(member.id) : await reactivateMember(member.id);
       if (result.ok) toast.success(result.message);
@@ -68,6 +68,7 @@ export function MemberManagement({ members, currentUserId }: { members: Profile[
                 <div className="min-w-0">
                   <p className="truncate font-semibold text-apple-text">{member.display_name || member.email}</p>
                   <p className="truncate text-sm text-apple-muted">{member.email}</p>
+                  <LineConnectionBadge member={member} />
                 </div>
               </div>
               <select
@@ -94,5 +95,26 @@ export function MemberManagement({ members, currentUserId }: { members: Profile[
         </div>
       </section>
     </div>
+  );
+}
+
+function LineConnectionBadge({ member }: { member: MemberWithLineStatus }) {
+  const status = member.line_link_status;
+  const presentation = status === "LINKED"
+    ? { label: "เชื่อม LINE แล้ว", className: "bg-[#06C755]/10 text-[#049b43]" }
+    : status === "PENDING"
+      ? { label: "รอเชื่อม LINE", className: "bg-amber-50 text-amber-700" }
+      : status === "BLOCKED"
+        ? { label: "LINE ถูกบล็อก", className: "bg-apple-red/10 text-apple-red" }
+        : { label: "ยังไม่เชื่อม LINE", className: "bg-apple-bg text-apple-muted" };
+
+  return (
+    <span
+      className={`mt-2 inline-flex items-center gap-1.5 rounded-full px-2 py-1 text-[11px] font-semibold ${presentation.className}`}
+      title={status === "LINKED" && member.line_linked_at ? `เชื่อมเมื่อ ${formatThaiDate(member.line_linked_at)}` : presentation.label}
+    >
+      <MessageCircle className={`h-3.5 w-3.5 ${status === "LINKED" ? "fill-current" : ""}`} />
+      {presentation.label}
+    </span>
   );
 }

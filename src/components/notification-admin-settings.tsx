@@ -180,6 +180,13 @@ export function NotificationAdminSettings({ initial }: { initial: AdminNotificat
 
       {tab === "events" ? (
         <div className="p-5 sm:p-6">
+          <div className="mb-5 flex items-start gap-3 rounded-lg border border-apple-blue/20 bg-apple-blue/5 px-4 py-3">
+            <ShieldCheck className="mt-0.5 h-5 w-5 shrink-0 text-apple-blue" />
+            <div>
+              <p className="text-sm font-semibold text-apple-text">Admin ควบคุมการแจ้งเตือนส่วนกลาง</p>
+              <p className="mt-1 text-xs leading-5 text-apple-muted">ค่าของ Event, In-app, Email และ LINE ในหน้านี้มีผลกับสมาชิกทุกคน ผู้ใช้จัดการได้เฉพาะการเชื่อมบัญชี LINE เพื่อระบุปลายทางรับข้อความ</p>
+            </div>
+          </div>
           <form
             action={(formData) =>
               run(() =>

@@ -6,14 +6,31 @@ import { fail, ok, toErrorResult } from "@/lib/result";
 import { createClient, createServiceClient } from "@/lib/supabase/server";
 import { memberUpdateSchema, uuidSchema } from "@/lib/validators";
 import { normalizeEmail } from "@/lib/utils";
+import type { MemberWithLineStatus, UserNotificationChannel } from "@/types/app";
 
 export async function getMembers() {
   try {
     await requireAdmin();
     const supabase = await createClient();
-    const { data, error } = await supabase.from("profiles").select("*").order("created_at", { ascending: false });
+    const [profiles, channels] = await Promise.all([
+      supabase.from("profiles").select("*").order("created_at", { ascending: false }),
+      supabase.from("user_notification_channels").select("user_id,line_link_status,line_linked_at")
+    ]);
+    const error = profiles.error ?? channels.error;
     if (error) return fail("LOAD_MEMBERS_FAILED", error.message);
-    return ok(data ?? [], "โหลดสมาชิกสำเร็จ");
+    const channelByUser = new Map(
+      ((channels.data ?? []) as Pick<UserNotificationChannel, "user_id" | "line_link_status" | "line_linked_at">[])
+        .map((channel) => [channel.user_id, channel])
+    );
+    const members = (profiles.data ?? []).map((profile) => {
+      const channel = channelByUser.get(profile.id);
+      return {
+        ...profile,
+        line_link_status: channel?.line_link_status ?? "NOT_LINKED",
+        line_linked_at: channel?.line_linked_at ?? null
+      } as MemberWithLineStatus;
+    });
+    return ok(members, "โหลดสมาชิกสำเร็จ");
   } catch (error) {
     return toErrorResult(error);
   }

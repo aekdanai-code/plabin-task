@@ -98,20 +98,6 @@ export type AppNotification = {
   created_at: string;
 };
 
-export type NotificationPreferences = {
-  task_shared: boolean;
-  task_updated: boolean;
-};
-
-export type EventNotificationPreference = {
-  user_id: string;
-  event_type: NotificationEventType;
-  in_app_enabled: boolean;
-  email_enabled: boolean;
-  line_enabled: boolean;
-  updated_at?: string;
-};
-
 export type NotificationEventRule = {
   event_type: NotificationEventType;
   display_name: string;
@@ -151,6 +137,8 @@ export type UserNotificationChannel = {
   last_line_error: string | null;
   updated_at: string;
 };
+
+export type MemberWithLineStatus = Profile & Pick<UserNotificationChannel, "line_link_status" | "line_linked_at">;
 
 export type TaskSummary = {
   id: string;
