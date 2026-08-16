@@ -14,7 +14,7 @@ import {
   updateNotificationTemplate
 } from "@/actions/notification-settings-actions";
 import { formatThaiDate } from "@/lib/format";
-import type { NotificationEventRule, NotificationTemplate, UserNotificationChannel } from "@/types/app";
+import { notificationEventLabels, type NotificationEventRule, type NotificationEventType, type NotificationTemplate, type UserNotificationChannel } from "@/types/app";
 
 type AdminNotificationData = {
   system: {
@@ -81,6 +81,41 @@ const templateVariables = [
   ["event_title", "ชื่อหัวข้อของ Event เช่น “Task เสร็จสิ้นแล้ว”"],
   ["event_message", "ข้อความสรุปเหตุการณ์ที่ระบบสร้างให้"],
 ] as const;
+
+const linePreviewStyles: Record<NotificationEventType, { accent: string; label: string }> = {
+  TASK_SHARED: { accent: "#0A84FF", label: "แชร์ TASK" },
+  TASK_UPDATED_MANUAL: { accent: "#0A84FF", label: "อัปเดต TASK" },
+  TASK_EDITED: { accent: "#0A84FF", label: "แก้ไข TASK" },
+  CHECKLIST_CHECKED: { accent: "#30B566", label: "CHECKLIST" },
+  CHECKLIST_UNCHECKED: { accent: "#FF9F0A", label: "CHECKLIST" },
+  TASK_COMPLETED: { accent: "#30B566", label: "เสร็จสิ้น" },
+  TASK_REOPENED: { accent: "#0A84FF", label: "เปิดใหม่" },
+  TASK_ARCHIVED: { accent: "#6B7280", label: "ARCHIVE" },
+  TASK_RESTORED: { accent: "#0A84FF", label: "RESTORE" },
+  TASK_DUE_SOON: { accent: "#FF9F0A", label: "ใกล้ครบกำหนด" },
+  TASK_OVERDUE: { accent: "#E5484D", label: "เกินกำหนด" }
+};
+
+function renderTemplatePreview(template: string, eventType: NotificationEventType) {
+  const values: Record<string, string> = {
+    recipient_name: "คุณสมชาย",
+    actor_name: "เอกดนัย",
+    task_name: "จัดทำรายงานประจำเดือน",
+    task_url: "https://app.example.com/?task=sample",
+    category_name: "งานสำนักงาน",
+    progress: "68",
+    due_at: "20/08/2026 17:00",
+    event_time: "16/08/2026 14:30",
+    checklist_item_name: "ตรวจสอบตัวเลข",
+    event_title: notificationEventLabels[eventType],
+    event_message: " มีการอัปเดต Task “จัดทำรายงานประจำเดือน”"
+  };
+
+  return Object.entries(values).reduce(
+    (result, [name, value]) => result.replaceAll(`{{${name}}}`, value),
+    template
+  );
+}
 
 function Toggle({ checked, onChange, label }: { checked: boolean; onChange: (value: boolean) => void; label: string }) {
   return (
@@ -262,13 +297,19 @@ export function NotificationAdminSettings({ initial }: { initial: AdminNotificat
 
       {tab === "templates" ? (
         <div className="p-5 sm:p-6">
-          <label className="text-sm font-medium">เลือก Template<select value={templateId} onChange={(event) => setTemplateId(event.target.value)} className="mt-2 w-full rounded-lg border border-apple-line px-4 py-3">{templates.map((template) => <option key={template.id} value={template.id}>{template.event_type} · {template.channel}</option>)}</select></label>
+          <label className="text-sm font-medium">เลือก Template<select value={templateId} onChange={(event) => setTemplateId(event.target.value)} className="mt-2 w-full rounded-lg border border-apple-line px-4 py-3">{templates.map((template) => <option key={template.id} value={template.id}>{notificationEventLabels[template.event_type]} · {template.channel}</option>)}</select></label>
           {selectedTemplate ? (
             <form action={() => run(() => updateNotificationTemplate(selectedTemplate))} className="mt-4 space-y-4">
-              <Field label="Subject / Title" name="subject" value={selectedTemplate.subject_template} onChange={(value) => setTemplates((rows) => rows.map((row) => row.id === selectedTemplate.id ? { ...row, subject_template: value } : row))} />
-              <label className="block text-sm font-medium">ข้อความ<textarea rows={8} value={selectedTemplate.body_text_template} onChange={(event) => setTemplates((rows) => rows.map((row) => row.id === selectedTemplate.id ? { ...row, body_text_template: event.target.value } : row))} className="mt-2 w-full rounded-lg border border-apple-line px-4 py-3 font-mono text-sm" /></label>
-              {selectedTemplate.channel === "EMAIL" ? <label className="block text-sm font-medium">HTML<textarea rows={8} value={selectedTemplate.body_html_template ?? ""} onChange={(event) => setTemplates((rows) => rows.map((row) => row.id === selectedTemplate.id ? { ...row, body_html_template: event.target.value } : row))} className="mt-2 w-full rounded-lg border border-apple-line px-4 py-3 font-mono text-sm" /></label> : null}
-              <TemplateVariableGuide />
+              <div className={selectedTemplate.channel === "LINE" ? "grid gap-6 xl:grid-cols-[minmax(0,1fr)_380px] xl:items-start" : ""}>
+                <div className="space-y-4">
+                  <Field label="Subject / Title" name="subject" value={selectedTemplate.subject_template} onChange={(value) => setTemplates((rows) => rows.map((row) => row.id === selectedTemplate.id ? { ...row, subject_template: value } : row))} />
+                  <label className="block text-sm font-medium">ข้อความ<textarea rows={8} value={selectedTemplate.body_text_template} onChange={(event) => setTemplates((rows) => rows.map((row) => row.id === selectedTemplate.id ? { ...row, body_text_template: event.target.value } : row))} className="mt-2 w-full rounded-lg border border-apple-line px-4 py-3 font-mono text-sm" /></label>
+                  {selectedTemplate.channel === "EMAIL" ? <label className="block text-sm font-medium">HTML<textarea rows={8} value={selectedTemplate.body_html_template ?? ""} onChange={(event) => setTemplates((rows) => rows.map((row) => row.id === selectedTemplate.id ? { ...row, body_html_template: event.target.value } : row))} className="mt-2 w-full rounded-lg border border-apple-line px-4 py-3 font-mono text-sm" /></label> : null}
+                  {selectedTemplate.channel === "LINE" ? <p className="rounded-lg bg-apple-blue/5 px-4 py-3 text-xs leading-5 text-apple-muted">Subject จะแสดงเป็นหัวข้อบน Flex Card ส่วนข้อความจะแสดงเป็นคำอธิบาย และระบบจะนำ <code className="font-mono text-apple-text">{"{{task_url}}"}</code> ไปใช้กับปุ่ม “เปิด” ให้อัตโนมัติ</p> : null}
+                </div>
+                {selectedTemplate.channel === "LINE" ? <LineFlexPreview template={selectedTemplate} /> : null}
+              </div>
+              <TemplateVariableGuide channel={selectedTemplate.channel} />
               <SaveButton pending={isPending} />
             </form>
           ) : null}
@@ -600,7 +641,54 @@ function GuideLink({ href, label }: { href: string; label: string }) {
   return <a href={href} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 rounded-lg bg-apple-bg px-3 py-2 text-xs font-semibold text-apple-blue hover:bg-apple-blue/10">{label}<ExternalLink className="h-3.5 w-3.5" /></a>;
 }
 
-function TemplateVariableGuide() {
+function LineFlexPreview({ template }: { template: NotificationTemplate }) {
+  const style = linePreviewStyles[template.event_type];
+  const progress = 68;
+  const subject = renderTemplatePreview(template.subject_template, template.event_type) || "การแจ้งเตือน";
+  const body = renderTemplatePreview(template.body_text_template, template.event_type) || "มีการอัปเดต Task";
+
+  return (
+    <aside className="overflow-hidden rounded-xl border border-[#d7d7d7] bg-[#eef0f1] p-3 xl:sticky xl:top-24" aria-label="ตัวอย่าง LINE Flex Message">
+      <div className="mb-2 flex items-center justify-between px-1 text-[11px] text-[#6b7280]">
+        <span className="font-semibold">LIVE PREVIEW</span>
+        <span>ข้อมูลตัวอย่าง · 68%</span>
+      </div>
+      <div className="mx-auto max-w-[350px] overflow-hidden rounded-xl bg-white shadow-md">
+        <header className="flex items-center justify-between gap-3 px-5 py-4 text-white" style={{ backgroundColor: style.accent }}>
+          <span className="text-xs font-bold tracking-wide">PLABIN TASK</span>
+          <span className="text-[10px] font-medium">{style.label}</span>
+        </header>
+        <div className="p-5">
+          <h3 className="whitespace-pre-wrap break-words text-lg font-bold leading-6 text-[#1d1d1f]">{subject}</h3>
+          <p className="mt-3 text-sm font-semibold text-[#3a3a3c]">จัดทำรายงานประจำเดือน</p>
+          <p className="mt-2 whitespace-pre-wrap break-words text-xs leading-5 text-[#636366]">{body}</p>
+          <div className="my-4 h-px bg-[#e5e5ea]" />
+          <dl className="space-y-2 text-xs">
+            <PreviewDetail label="หมวดหมู่" value="งานสำนักงาน" />
+            <PreviewDetail label="ผู้ดำเนินการ" value="เอกดนัย" />
+            <PreviewDetail label="กำหนดส่ง" value="20/08/2026 17:00" />
+          </dl>
+          <div className="mt-5 flex items-center justify-between text-xs">
+            <span className="text-[#636366]">ความคืบหน้า</span>
+            <span className="font-bold" style={{ color: style.accent }}>{progress}%</span>
+          </div>
+          <div className="mt-2 h-2 overflow-hidden rounded-full bg-[#e5e7eb]" role="progressbar" aria-label="ความคืบหน้าตัวอย่าง" aria-valuenow={progress} aria-valuemin={0} aria-valuemax={100}>
+            <div className="h-full rounded-full transition-[width,background-color] duration-300" style={{ width: `${progress}%`, backgroundColor: style.accent }} />
+          </div>
+        </div>
+        <div className="border-t border-[#eeeeef] p-4">
+          <button type="button" className="w-full rounded-md px-4 py-2.5 text-sm font-semibold text-white" style={{ backgroundColor: style.accent }}>เปิด</button>
+        </div>
+      </div>
+    </aside>
+  );
+}
+
+function PreviewDetail({ label, value }: { label: string; value: string }) {
+  return <div className="grid grid-cols-[90px_1fr] gap-2"><dt className="text-[#8e8e93]">{label}</dt><dd className="break-words text-[#1d1d1f]">{value}</dd></div>;
+}
+
+function TemplateVariableGuide({ channel }: { channel: NotificationTemplate["channel"] }) {
   return (
     <aside className="overflow-hidden rounded-lg border border-apple-line bg-apple-bg" aria-labelledby="template-variable-guide-title">
       <div className="border-b border-apple-line px-4 py-3">
@@ -608,6 +696,7 @@ function TemplateVariableGuide() {
         <p className="mt-1 text-xs leading-5 text-apple-muted">
           ใส่ตัวแปรในรูปแบบ <code className="rounded bg-white px-1.5 py-0.5 font-mono text-apple-text">{"{{variable_name}}"}</code> ระบบจะแทนค่าตอนส่ง และจะแสดง <code className="rounded bg-white px-1.5 py-0.5 font-mono text-apple-text">-</code> เมื่อ Event นั้นไม่มีข้อมูล
         </p>
+        {channel === "LINE" ? <p className="mt-2 text-xs font-medium leading-5 text-apple-blue">สำหรับ LINE ไม่จำเป็นต้องพิมพ์ลิงก์ในข้อความ เพราะระบบใช้ <code className="font-mono">{"{{task_url}}"}</code> สร้างปุ่ม “เปิด” ด้านล่าง Flex Card ให้อัตโนมัติ</p> : null}
       </div>
       <dl className="grid gap-px bg-apple-line sm:grid-cols-2">
         {templateVariables.map(([name, description]) => (

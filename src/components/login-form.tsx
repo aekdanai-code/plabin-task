@@ -5,6 +5,10 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
 
+function safeNextPath(value: string | null) {
+  return value?.startsWith("/") && !value.startsWith("//") ? value : "/";
+}
+
 export function LoginForm({ mode }: { mode: "login" | "register" }) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -49,7 +53,7 @@ export function LoginForm({ mode }: { mode: "login" | "register" }) {
           router.replace("/login");
         } else {
           toast.success(mode === "login" ? "เข้าสู่ระบบสำเร็จ" : "สร้างบัญชีสำเร็จ");
-          router.replace(searchParams.get("next") || "/");
+          router.replace(safeNextPath(searchParams.get("next")));
         }
         router.refresh();
       } catch (error) {

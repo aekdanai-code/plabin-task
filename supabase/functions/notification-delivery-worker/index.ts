@@ -1,5 +1,6 @@
 import { createClient } from "npm:@supabase/supabase-js@2.110.5";
 import nodemailer from "npm:nodemailer@7.0.6";
+import { buildLineFlexMessage } from "./line-flex.ts";
 
 type QueueMessage = { queue_message_id: number; delivery_id: string };
 
@@ -92,7 +93,16 @@ Deno.serve(async (request) => {
             Authorization: `Bearer ${accessToken}`,
             "X-Line-Retry-Key": delivery.id
           },
-          body: JSON.stringify({ to: channel.line_user_id, messages: [{ type: "text", text: body.slice(0, 5000) }] })
+          body: JSON.stringify({
+            to: channel.line_user_id,
+            messages: [buildLineFlexMessage({
+              subject,
+              body,
+              payload,
+              appBaseUrl: settings?.app_base_url || "",
+              eventType: notification.event_type
+            })]
+          })
         });
         providerMessageId = response.headers.get("x-line-request-id");
         if (!response.ok) throw new Error(`LINE_${response.status}: ${await response.text()}`);
