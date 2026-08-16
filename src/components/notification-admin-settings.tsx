@@ -98,7 +98,9 @@ export function NotificationAdminSettings({ initial }: { initial: AdminNotificat
   const [templates, setTemplates] = useState(initial.templates);
   const [isPending, startTransition] = useTransition();
   const [templateId, setTemplateId] = useState(initial.templates[0]?.id ?? "");
+  const [smtpGuideOpen, setSmtpGuideOpen] = useState(false);
   const [lineGuideOpen, setLineGuideOpen] = useState(false);
+  const smtpGuideButtonRef = useRef<HTMLButtonElement>(null);
   const lineGuideButtonRef = useRef<HTMLButtonElement>(null);
   const selectedTemplate = useMemo(() => templates.find((item) => item.id === templateId), [templateId, templates]);
 
@@ -213,6 +215,8 @@ export function NotificationAdminSettings({ initial }: { initial: AdminNotificat
           icon={<Mail className="h-5 w-5" />}
           title="SMTP Email"
           configured={initial.email.password_configured}
+          guideButtonRef={smtpGuideButtonRef}
+          onGuide={() => setSmtpGuideOpen(true)}
           onTest={() => run(() => queueTestNotification("EMAIL"))}
         >
           <form action={(formData) => run(() => updateEmailChannelConfig(Object.fromEntries(formData)))} className="grid gap-4 md:grid-cols-2">
@@ -283,6 +287,15 @@ export function NotificationAdminSettings({ initial }: { initial: AdminNotificat
         </div>
       ) : null}
 
+      {smtpGuideOpen ? (
+        <SmtpSetupGuideModal
+          onClose={() => {
+            setSmtpGuideOpen(false);
+            window.requestAnimationFrame(() => smtpGuideButtonRef.current?.focus());
+          }}
+        />
+      ) : null}
+
       {lineGuideOpen ? (
         <LineSetupGuideModal
           onClose={() => {
@@ -293,6 +306,156 @@ export function NotificationAdminSettings({ initial }: { initial: AdminNotificat
       ) : null}
     </section>
   );
+}
+
+function SmtpSetupGuideModal({ onClose }: { onClose: () => void }) {
+  const closeButtonRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    closeButtonRef.current?.focus();
+
+    function closeWithEscape(event: KeyboardEvent) {
+      if (event.key === "Escape") onClose();
+    }
+
+    document.addEventListener("keydown", closeWithEscape);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      document.removeEventListener("keydown", closeWithEscape);
+    };
+  }, [onClose]);
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-4 backdrop-blur-sm" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
+      <section
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="smtp-guide-title"
+        aria-describedby="smtp-guide-description"
+        className="flex max-h-[min(880px,calc(100vh-2rem))] w-full max-w-4xl flex-col overflow-hidden rounded-xl bg-white shadow-2xl"
+      >
+        <header className="flex shrink-0 items-start gap-3 border-b border-apple-line px-5 py-4 sm:px-6">
+          <span className="rounded-lg bg-apple-blue/10 p-2 text-apple-blue"><Mail className="h-5 w-5" /></span>
+          <div className="min-w-0 flex-1">
+            <h2 id="smtp-guide-title" className="text-xl font-semibold text-apple-text">คู่มือตั้งค่า SMTP Email</h2>
+            <p id="smtp-guide-description" className="mt-1 text-sm leading-6 text-apple-muted">ตั้งค่าผู้ให้บริการ SMTP, Credential, ผู้ส่ง และทดสอบการส่ง Email จาก Plabin Task</p>
+          </div>
+          <button ref={closeButtonRef} type="button" onClick={onClose} className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-apple-bg text-apple-muted hover:text-apple-text" title="ปิดคู่มือ" aria-label="ปิดคู่มือ">
+            <X className="h-5 w-5" />
+          </button>
+        </header>
+
+        <div className="apple-scrollbar overflow-y-auto px-5 py-5 sm:px-6">
+          <div className="space-y-6">
+            <GuideStep number="1" title="เลือกผู้ให้บริการ SMTP">
+              <p>แนะนำให้ใช้บริการ Transactional Email ที่รองรับ SMTP Username/Password หรือ API Key เช่น SendGrid, Mailgun หรือ Brevo เพราะเหมาะกับการส่งข้อความอัตโนมัติและมี Delivery log ของผู้ให้บริการ</p>
+              <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                <ProviderExample provider="SendGrid" host="smtp.sendgrid.net" port="587" security="STARTTLS" username="apikey" password="API Key" />
+                <ProviderExample provider="Mailgun" host="smtp.mailgun.org" port="587" security="STARTTLS" username="SMTP username" password="SMTP password" />
+                <ProviderExample provider="Brevo" host="smtp-relay.brevo.com" port="587" security="STARTTLS" username="SMTP login" password="SMTP key" />
+                <ProviderExample provider="Gmail ส่วนบุคคล" host="smtp.gmail.com" port="587 หรือ 465" security="STARTTLS หรือ TLS" username="อีเมลเต็ม" password="App Password 16 หลัก" />
+              </div>
+              <div className="mt-3 flex flex-wrap gap-2">
+                <GuideLink href="https://www.twilio.com/docs/sendgrid/for-developers/sending-email/integrating-with-the-smtp-api" label="คู่มือ SendGrid" />
+                <GuideLink href="https://documentation.mailgun.com/docs/mailgun/user-manual/sending-messages/send-smtp" label="คู่มือ Mailgun" />
+                <GuideLink href="https://help.brevo.com/hc/en-us/articles/360001005870-SMTP-relay" label="คู่มือ Brevo" />
+                <GuideLink href="https://support.google.com/accounts/answer/185833" label="Google App Password" />
+              </div>
+            </GuideStep>
+
+            <GuideStep number="2" title="ยืนยันผู้ส่งและ Domain">
+              <p>เพิ่มและยืนยันอีเมลผู้ส่งหรือ Domain ใน Dashboard ของผู้ให้บริการก่อน จากนั้นตั้งค่า SPF และ DKIM ตามค่าที่ผู้ให้บริการออกให้ หากมี DMARC ให้ตั้งเพิ่มเพื่อช่วยลดโอกาสเข้า Spam</p>
+              <p className="mt-2 rounded-lg bg-amber-50 p-3 text-amber-800">อีเมลผู้ส่งใน Plabin Task ต้องตรงกับ Sender หรือ Domain ที่ผ่านการยืนยัน มิฉะนั้นผู้ให้บริการอาจตอบกลับด้วยรหัส 550 หรือ 553</p>
+            </GuideStep>
+
+            <GuideStep number="3" title="เตรียม Credential สำหรับ SMTP">
+              <dl className="grid gap-2 sm:grid-cols-2">
+                <GuideValue name="SMTP Host" description="ชื่อ Server จากผู้ให้บริการ เช่น smtp.sendgrid.net" />
+                <GuideValue name="Port" description="แนะนำ 587 สำหรับ STARTTLS หรือใช้ 465 เมื่อผู้ให้บริการระบุ TLS" />
+                <GuideValue name="Username" description="อาจเป็น SMTP login, อีเมล หรือคำว่า apikey ตามผู้ให้บริการ" />
+                <GuideValue name="Password" description="ใช้ SMTP password, API Key หรือ App Password ห้ามใช้ค่าที่ไม่ใช่ SMTP Credential" />
+              </dl>
+            </GuideStep>
+
+            <GuideStep number="4" title="เลือก Security ให้ตรงกับ Port">
+              <div className="overflow-x-auto rounded-lg border border-apple-line">
+                <table className="min-w-full text-left text-xs">
+                  <thead className="bg-apple-bg text-apple-muted"><tr><th className="p-3">Security</th><th className="p-3">Port ที่พบบ่อย</th><th className="p-3">ความหมาย</th></tr></thead>
+                  <tbody className="divide-y divide-apple-line text-apple-muted">
+                    <tr><td className="p-3 font-semibold text-apple-text">STARTTLS</td><td className="p-3">587</td><td className="p-3">เริ่มเชื่อมต่อแล้วอัปเกรดเป็น TLS — ตัวเลือกแนะนำสำหรับผู้ให้บริการส่วนใหญ่</td></tr>
+                    <tr><td className="p-3 font-semibold text-apple-text">TLS</td><td className="p-3">465</td><td className="p-3">เข้ารหัสตั้งแต่เริ่มเชื่อมต่อ หรือ Implicit TLS</td></tr>
+                    <tr><td className="p-3 font-semibold text-apple-text">NONE</td><td className="p-3">ขึ้นกับระบบ</td><td className="p-3">ไม่บังคับเข้ารหัส ไม่แนะนำสำหรับการส่งผ่านอินเทอร์เน็ต</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </GuideStep>
+
+            <GuideStep number="5" title="กรอกค่าในหน้า SMTP ของ Plabin Task">
+              <ol className="list-decimal space-y-2 pl-5">
+                <li>กรอก Host, Port, Security, Username และ Password ตามข้อมูลของผู้ให้บริการ</li>
+                <li>ชื่อผู้ส่งคือชื่อที่ผู้รับเห็น เช่น Plabin Task</li>
+                <li>อีเมลผู้ส่งต้องเป็น Sender หรือ Domain ที่ยืนยันแล้ว</li>
+                <li>Reply-to คืออีเมลที่จะรับคำตอบ สามารถเว้นว่างได้</li>
+                <li>เปิดสวิตช์ “เปิด Email” แล้วกดบันทึก</li>
+              </ol>
+              <p className="mt-3 rounded-lg bg-apple-blue/5 p-3 text-apple-blue">Password จะถูกเก็บใน Supabase Vault และไม่ถูกส่งกลับมาแสดงใน Browser หากระบบแจ้งว่าตั้งค่าแล้ว ให้เว้นช่อง Password ว่างเพื่อคงค่าเดิม</p>
+            </GuideStep>
+
+            <GuideStep number="6" title="ทดสอบการส่ง">
+              <p>กด “ส่งทดสอบ” ระบบจะเพิ่ม Email เข้าคิว จากนั้นเปิดแท็บ Delivery log เพื่อตรวจสอบ สถานะปกติจะเปลี่ยนจาก PENDING เป็น SENT หลัง Worker ทำงาน</p>
+              <div className="mt-3 flex items-start gap-2 rounded-lg bg-emerald-50 p-3 text-sm text-emerald-700">
+                <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />
+                <span>ตรวจทั้ง Inbox และ Spam/Junk รวมถึง Delivery log ใน Dashboard ของผู้ให้บริการ SMTP</span>
+              </div>
+            </GuideStep>
+
+            <GuideStep number="7" title="แก้ปัญหาเมื่อส่งไม่สำเร็จ">
+              <dl className="space-y-2">
+                <TroubleshootingItem code="535 / Authentication failed" solution="ตรวจ Username และ Password; SendGrid ต้องใช้ Username ว่า apikey ส่วน Gmail ต้องใช้ App Password ไม่ใช่รหัสผ่านบัญชี" />
+                <TroubleshootingItem code="Connection timeout" solution="ตรวจ Host/Port, เลือก 587 STARTTLS ก่อน และตรวจว่าผู้ให้บริการหรือ Network ไม่ได้บล็อก Port" />
+                <TroubleshootingItem code="TLS / certificate error" solution="ตรวจว่าเลือก STARTTLS สำหรับ 587 หรือ TLS สำหรับ 465 ตรงตามคู่มือผู้ให้บริการ" />
+                <TroubleshootingItem code="550 / 553 sender rejected" solution="ยืนยัน Sender/Domain และตรวจว่าอีเมลผู้ส่งตรงกับสิทธิ์ของ Credential" />
+                <TroubleshootingItem code="SENT แต่ไม่พบ Email" solution="ตรวจ Spam/Junk, SPF, DKIM, DMARC และ Activity/Delivery log ของผู้ให้บริการ" />
+              </dl>
+            </GuideStep>
+
+            <div className="flex items-start gap-3 rounded-lg border border-red-200 bg-red-50 p-4">
+              <ShieldCheck className="mt-0.5 h-5 w-5 shrink-0 text-red-600" />
+              <div>
+                <p className="text-sm font-semibold text-red-800">ข้อจำกัดของ Microsoft 365</p>
+                <p className="mt-1 text-xs leading-5 text-red-700">ฟอร์มปัจจุบันรองรับ Username/Password แต่ยังไม่รองรับ OAuth 2.0 สำหรับ SMTP ดังนั้น Microsoft 365/Exchange Online ที่ปิด Basic authentication จะใช้งานกับการตั้งค่านี้ไม่ได้ ควรใช้ Transactional SMTP provider ที่รองรับ API Key แทน</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <footer className="flex shrink-0 justify-end border-t border-apple-line px-5 py-4 sm:px-6">
+          <button type="button" onClick={onClose} className="rounded-lg bg-apple-text px-5 py-2.5 text-sm font-semibold text-white">เข้าใจแล้ว</button>
+        </footer>
+      </section>
+    </div>
+  );
+}
+
+function ProviderExample({ provider, host, port, security, username, password }: { provider: string; host: string; port: string; security: string; username: string; password: string }) {
+  return (
+    <div className="rounded-lg border border-apple-line p-3 text-xs">
+      <p className="font-semibold text-apple-text">{provider}</p>
+      <dl className="mt-2 grid grid-cols-[72px_1fr] gap-x-2 gap-y-1 text-apple-muted">
+        <dt>Host</dt><dd className="break-all font-mono text-apple-text">{host}</dd>
+        <dt>Port</dt><dd>{port}</dd>
+        <dt>Security</dt><dd>{security}</dd>
+        <dt>Username</dt><dd>{username}</dd>
+        <dt>Password</dt><dd>{password}</dd>
+      </dl>
+    </div>
+  );
+}
+
+function TroubleshootingItem({ code, solution }: { code: string; solution: string }) {
+  return <div className="rounded-lg border border-apple-line p-3"><dt className="text-xs font-semibold text-apple-text">{code}</dt><dd className="mt-1 text-xs leading-5 text-apple-muted">{solution}</dd></div>;
 }
 
 function LineSetupGuideModal({ onClose }: { onClose: () => void }) {
