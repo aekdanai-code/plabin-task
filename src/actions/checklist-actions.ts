@@ -52,12 +52,39 @@ export async function toggleChecklistItem(itemId: string, isChecked: boolean, re
     uuidSchema.parse(requestId);
     await requireUser();
     const supabase = await createClient();
+    const { data: beforeItem } = await supabase
+      .from("checklist_items")
+      .select("task_id,item_name,tasks(status)")
+      .eq("id", itemId)
+      .single();
     const { data, error } = await supabase.rpc("toggle_checklist_item", {
       target_item_id: itemId,
       next_checked: isChecked,
       request_id: requestId
     });
     if (error || !data) return fail("TOGGLE_ITEM_FAILED", error?.message ?? "อัปเดตรายการไม่สำเร็จ");
+    const taskId = data.task_id ?? beforeItem?.task_id;
+    if (taskId) {
+      const checklistNotification = await supabase.rpc("emit_task_notification", {
+        target_task_id: taskId,
+        target_event_type: isChecked ? "CHECKLIST_CHECKED" : "CHECKLIST_UNCHECKED",
+        event_payload: { checklist_item_name: data.item_name ?? beforeItem?.item_name ?? "Checklist", request_id: requestId }
+      });
+      const notificationWarning = checklistNotification.error ? " แต่สร้างการแจ้งเตือนไม่สำเร็จ" : "";
+
+      const { data: currentTask } = await supabase.from("tasks").select("status").eq("id", taskId).single();
+      const beforeTaskRelation = beforeItem?.tasks as unknown as { status?: string } | Array<{ status?: string }> | null | undefined;
+      const previousStatus = Array.isArray(beforeTaskRelation) ? beforeTaskRelation[0]?.status : beforeTaskRelation?.status;
+      if (currentTask?.status === "COMPLETED" && previousStatus !== "COMPLETED") {
+        await supabase.rpc("emit_task_notification", { target_task_id: taskId, target_event_type: "TASK_COMPLETED", event_payload: {} });
+      } else if (previousStatus === "COMPLETED" && currentTask?.status !== "COMPLETED") {
+        await supabase.rpc("emit_task_notification", { target_task_id: taskId, target_event_type: "TASK_REOPENED", event_payload: {} });
+      }
+      if (notificationWarning) {
+        revalidatePath("/");
+        return ok(data, `อัปเดตรายการสำเร็จ${notificationWarning}`);
+      }
+    }
     revalidatePath("/");
     return ok(data, "อัปเดตรายการสำเร็จ");
   } catch (error) {

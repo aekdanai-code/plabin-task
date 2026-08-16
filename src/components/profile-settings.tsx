@@ -13,8 +13,10 @@ import {
 } from "@/actions/profile-actions";
 import { formatThaiDate, initials } from "@/lib/format";
 import type { Profile } from "@/types/app";
+import { NotificationProfileSettings } from "@/components/notification-profile-settings";
+import type { ComponentProps } from "react";
 
-export function ProfileSettings({ user }: { user: Profile }) {
+export function ProfileSettings({ user, notificationSettings }: { user: Profile; notificationSettings: ComponentProps<typeof NotificationProfileSettings>["initial"] }) {
   const router = useRouter();
   const fileInput = useRef<HTMLInputElement>(null);
   const [displayName, setDisplayName] = useState(user.display_name ?? "");
@@ -225,6 +227,7 @@ export function ProfileSettings({ user }: { user: Profile }) {
           </div>
         </div>
       </section>
+      <NotificationProfileSettings initial={notificationSettings} />
     </main>
   );
 }

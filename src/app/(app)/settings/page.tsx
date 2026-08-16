@@ -1,17 +1,29 @@
 import { getCategories } from "@/actions/category-actions";
+import { getNotificationAdminData } from "@/actions/notification-settings-actions";
 import { CategoryManagement } from "@/components/category-management";
+import { NotificationAdminSettings } from "@/components/notification-admin-settings";
 import { requireAdmin } from "@/lib/auth";
 
 export default async function SettingsPage() {
   await requireAdmin();
-  const categories = await getCategories();
+  const [categories, notificationSettings] = await Promise.all([getCategories(), getNotificationAdminData()]);
   return (
-    <main className="mx-auto max-w-4xl px-4 py-8">
+    <main className="mx-auto max-w-6xl px-4 py-8">
       <div className="mb-6">
         <p className="text-sm font-medium text-apple-muted">Admin</p>
-        <h1 className="text-3xl font-semibold text-apple-text">จัดการหมวดหมู่</h1>
+        <h1 className="text-3xl font-semibold text-apple-text">ตั้งค่าระบบ</h1>
       </div>
-      <CategoryManagement categories={categories.ok ? categories.data : []} />
+      <section>
+        <h2 className="mb-4 text-xl font-semibold text-apple-text">จัดการหมวดหมู่</h2>
+        <CategoryManagement categories={categories.ok ? categories.data : []} />
+      </section>
+      {notificationSettings.ok ? (
+        <NotificationAdminSettings initial={notificationSettings.data} />
+      ) : (
+        <section className="mt-10 rounded-lg border border-apple-red/30 bg-white p-5 text-sm text-apple-red">
+          โหลดการตั้งค่าแจ้งเตือนไม่สำเร็จ: {notificationSettings.message}
+        </section>
+      )}
     </main>
   );
 }

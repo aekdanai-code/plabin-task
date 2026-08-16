@@ -12,6 +12,9 @@ Plabin Task เวอร์ชัน Next.js + Supabase สำหรับ deplo
 - เลือกผู้รับ Share จาก dropdown ที่แสดง Display Name และเลือกซ้ำไม่ได้
 - Clone Task จาก card โดยเริ่ม Progress ใหม่และไม่คัดลอกผู้รับ Share
 - Notification ภายใน App เมื่อได้รับ Share
+- Notification ผ่าน SMTP Email และ LINE Official Account แบบรายบุคคล
+- Admin เลือก Event/Channel และแก้ Template ได้ พร้อม Queue, Retry และ Delivery log
+- Due date, แจ้งเตือนก่อนครบกำหนด และแจ้ง Task เกินกำหนด
 - ปุ่ม `แจ้งทีม` ใน Task ที่มีผู้รับ Share โดยไม่แจ้งกลับหาผู้กด
 - Search, filter, Archive/Restore และ sort เริ่มต้นด้วย `แก้ไขล่าสุด`
 - เมนู Admin สำหรับจัดการ Category และ Users
@@ -39,7 +42,8 @@ npm run dev
 3. `supabase/migrations/003_notification_center_idempotency.sql`
 4. `supabase/migrations/004_clone_task_idempotency.sql`
 5. `supabase/migrations/005_user_profiles.sql`
-6. `supabase/seed.sql`
+6. `supabase/migrations/20260815033952_notification_delivery_system.sql`
+7. `supabase/seed.sql`
 
 ผู้ใช้คนแรกที่สมัครจะเป็น `ADMIN` อัตโนมัติ ผู้ใช้หลังจากนั้นเป็น `USER`
 

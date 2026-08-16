@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState, useTransition } from "react";
-import { BellRing, Pencil, X } from "lucide-react";
+import { BellRing, CalendarClock, Pencil, X } from "lucide-react";
 import { toast } from "sonner";
 import { notifyTaskTeam } from "@/actions/notification-actions";
 import { ChecklistEditor } from "@/components/checklist-editor";
@@ -104,6 +104,11 @@ export function TaskDetailPanel({
               <span className="text-xs text-apple-muted">สิทธิ์ {access}</span>
             </div>
             <p className="mt-4 whitespace-pre-wrap text-sm leading-6 text-apple-muted">{task.description || "ไม่มีรายละเอียดเพิ่มเติม"}</p>
+            {task.due_at ? (
+              <p className="mt-3 flex items-center gap-2 text-sm font-medium text-apple-orange">
+                <CalendarClock className="h-4 w-4" /> ครบกำหนด {formatThaiDate(task.due_at)}
+              </p>
+            ) : null}
             <div className="mt-5 rounded-lg bg-apple-bg p-4">
               <div className="mb-2 flex justify-between text-sm font-medium text-apple-muted">
                 <span>Progress</span>

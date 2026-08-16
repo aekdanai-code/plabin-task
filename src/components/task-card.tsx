@@ -1,6 +1,6 @@
 "use client";
 
-import { Archive, CheckCircle2, Copy, MoreHorizontal, Trash2 } from "lucide-react";
+import { Archive, CalendarClock, CheckCircle2, Copy, MoreHorizontal, Trash2 } from "lucide-react";
 import type { Profile, TaskSummary } from "@/types/app";
 import { formatThaiDate, initials, relativeThaiTime } from "@/lib/format";
 import { taskAccess, canManageTask } from "@/lib/permissions";
@@ -55,6 +55,11 @@ export function TaskCard({
           <span className={`shrink-0 rounded-md px-3 py-1 text-xs font-semibold ${statusStyle[task.status]}`}>{statusLabel[task.status]}</span>
         </div>
         <p className="mt-3 line-clamp-2 min-h-10 text-sm leading-5 text-apple-muted">{task.description || "ไม่มีรายละเอียดเพิ่มเติม"}</p>
+        {task.due_at ? (
+          <p className="mt-3 flex items-center gap-1.5 text-xs font-medium text-apple-orange">
+            <CalendarClock className="h-3.5 w-3.5" /> ครบกำหนด {formatThaiDate(task.due_at)}
+          </p>
+        ) : null}
         <div className="mt-5">
           <div className="mb-2 flex items-center justify-between text-xs font-medium text-apple-muted">
             <span>{task.checklist_done ?? 0}/{task.checklist_total ?? 0} รายการ</span>

@@ -139,6 +139,12 @@ export async function createTask(payload: unknown, requestId: string): Promise<A
     });
 
     if (error || !task) return fail("CREATE_TASK_FAILED", error?.message ?? "สร้าง Task ไม่สำเร็จ");
+    if (input.due_at) {
+      const dueUpdate = await supabase.from("tasks").update({ due_at: input.due_at, due_timezone: "Asia/Bangkok" }).eq("id", task.id);
+      if (dueUpdate.error) return fail("CREATE_TASK_DUE_DATE_FAILED", dueUpdate.error.message);
+      task.due_at = input.due_at;
+      task.due_timezone = "Asia/Bangkok";
+    }
     revalidatePath("/");
     return ok(task as TaskSummary, "สร้าง Task สำเร็จ");
   } catch (error) {
@@ -165,8 +171,19 @@ export async function updateTask(taskId: string, payload: unknown, requestId: st
     });
 
     if (error || !data) return fail("UPDATE_TASK_FAILED", error?.message ?? "แก้ไข Task ไม่สำเร็จ");
+    const { error: dueError } = await supabase
+      .from("tasks")
+      .update({ due_at: input.due_at || null, due_timezone: "Asia/Bangkok" })
+      .eq("id", taskId);
+    if (dueError) return fail("UPDATE_TASK_DUE_DATE_FAILED", dueError.message);
+    const notification = await supabase.rpc("emit_task_notification", {
+      target_task_id: taskId,
+      target_event_type: "TASK_EDITED",
+      event_payload: { request_id: requestId }
+    });
+    const notificationWarning = notification.error ? " แต่สร้างการแจ้งเตือนไม่สำเร็จ" : "";
     revalidatePath("/");
-    return ok(data as TaskSummary, "แก้ไข Task สำเร็จ");
+    return ok(data as TaskSummary, `แก้ไข Task สำเร็จ${notificationWarning}`);
   } catch (error) {
     return toErrorResult(error);
   }
@@ -224,6 +241,18 @@ async function mutateTaskState(taskId: string, action: "DELETE_TASK" | "ARCHIVE_
     const { data, error } = await supabase.from("tasks").update(values).eq("id", taskId).select("*").single();
     if (error || !data) return fail(`${action}_FAILED`, error?.message ?? "ทำรายการไม่สำเร็จ");
     await supabase.from("activity_logs").insert({ task_id: taskId, user_id: user.id, action, detail_json: values });
+    if (action !== "DELETE_TASK") {
+      const eventType = action === "ARCHIVE_TASK" ? "TASK_ARCHIVED" : "TASK_RESTORED";
+      const notification = await supabase.rpc("emit_task_notification", {
+        target_task_id: taskId,
+        target_event_type: eventType,
+        event_payload: {}
+      });
+      if (notification.error) {
+        revalidatePath("/");
+        return ok(data, "ทำรายการสำเร็จ แต่สร้างการแจ้งเตือนไม่สำเร็จ");
+      }
+    }
     revalidatePath("/");
     return ok(data, "ทำรายการสำเร็จ");
   } catch (error) {

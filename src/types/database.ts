@@ -48,6 +48,8 @@ export type Database = {
           updated_at: string;
           completed_at: string | null;
           archived_at: string | null;
+          due_at: string | null;
+          due_timezone: string;
           is_deleted: boolean;
         };
         Insert: Partial<Database["public"]["Tables"]["tasks"]["Row"]> & {
@@ -108,6 +110,9 @@ export type Database = {
           is_read: boolean;
           read_at: string | null;
           created_at: string;
+          event_id: string | null;
+          event_type: string | null;
+          is_in_app_visible: boolean;
         };
         Insert: Partial<Database["public"]["Tables"]["notifications"]["Row"]> & {
           user_id: string;

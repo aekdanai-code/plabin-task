@@ -18,7 +18,7 @@ import {
   verticalListSortingStrategy
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { GripVertical, Plus, Trash2, UserPlus, X } from "lucide-react";
+import { CalendarClock, GripVertical, Plus, Trash2, UserPlus, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { createTask, updateTask } from "@/actions/task-actions";
@@ -48,6 +48,13 @@ function RequiredMark() {
       *
     </span>
   );
+}
+
+function toDateTimeLocal(value?: string | null) {
+  if (!value) return "";
+  const date = new Date(value);
+  const local = new Date(date.getTime() - date.getTimezoneOffset() * 60_000);
+  return local.toISOString().slice(0, 16);
 }
 
 function SortableChecklistRow({
@@ -240,6 +247,7 @@ export function TaskForm({
     const payload = {
       task_name: String(formData.get("task_name")),
       description: String(formData.get("description") || ""),
+      due_at: formData.get("due_at") ? new Date(String(formData.get("due_at"))).toISOString() : null,
       category_id: String(formData.get("category_id")),
       checklist_items: checklistItems,
       ...(canManageShares ? { shares } : {})
@@ -281,6 +289,18 @@ export function TaskForm({
           defaultValue={initialTask?.task_name}
           className="mt-2 w-full rounded-lg border border-apple-line px-4 py-3 text-sm focus:border-apple-blue"
         />
+      </label>
+      <label className="block">
+        <span className="flex items-center gap-2 text-sm font-medium text-apple-text">
+          <CalendarClock className="h-4 w-4 text-apple-blue" /> วันและเวลาครบกำหนด
+        </span>
+        <input
+          name="due_at"
+          type="datetime-local"
+          defaultValue={toDateTimeLocal(initialTask?.due_at)}
+          className="mt-2 w-full rounded-lg border border-apple-line px-4 py-3 text-sm focus:border-apple-blue"
+        />
+        <span className="mt-1 block text-xs text-apple-muted">ไม่บังคับ · ใช้เขตเวลา Asia/Bangkok</span>
       </label>
       <label className="block">
         <span className="text-sm font-medium text-apple-text">รายละเอียด</span>

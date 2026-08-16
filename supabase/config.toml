@@ -1,0 +1,5 @@
+[functions.notification-delivery-worker]
+verify_jwt = false
+
+[functions.line-webhook]
+verify_jwt = false
