@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Bell, BellRing, CheckCheck, ChevronLeft, LogOut, Settings, SlidersHorizontal, Users } from "lucide-react";
+import { Bell, BellRing, CheckCheck, ChevronLeft, LogOut, Settings, SlidersHorizontal, Tags, Users } from "lucide-react";
 import { toast } from "sonner";
 import type { AppNotification, NotificationPreferences, Profile } from "@/types/app";
 import { logout } from "@/actions/auth-actions";
@@ -222,7 +222,10 @@ export function AppHeader({
             <Link className="hidden h-10 w-10 items-center justify-center rounded-lg bg-apple-bg text-apple-text sm:flex" href="/members" title="จัดการ Users" aria-label="จัดการ Users">
               <Users className="h-5 w-5" />
             </Link>
-            <Link className="hidden h-10 w-10 items-center justify-center rounded-lg bg-apple-bg text-apple-text sm:flex" href="/settings" title="จัดการหมวดหมู่" aria-label="จัดการหมวดหมู่">
+            <Link className="hidden h-10 w-10 items-center justify-center rounded-lg bg-apple-bg text-apple-text sm:flex" href="/categories" title="จัดการหมวดหมู่" aria-label="จัดการหมวดหมู่">
+              <Tags className="h-5 w-5" />
+            </Link>
+            <Link className="hidden h-10 w-10 items-center justify-center rounded-lg bg-apple-bg text-apple-text sm:flex" href="/settings" title="ตั้งค่าระบบแจ้งเตือน" aria-label="ตั้งค่าระบบแจ้งเตือน">
               <Settings className="h-5 w-5" />
             </Link>
           </>

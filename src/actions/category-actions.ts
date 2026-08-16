@@ -27,6 +27,7 @@ export async function createCategory(payload: unknown) {
     if (error || !data) return fail("CREATE_CATEGORY_FAILED", error?.message ?? "สร้างหมวดหมู่ไม่สำเร็จ");
     await supabase.from("activity_logs").insert({ user_id: user.id, action: "CREATE_CATEGORY", detail_json: { category_id: data.id } });
     revalidatePath("/");
+    revalidatePath("/categories");
     return ok(data, "สร้างหมวดหมู่สำเร็จ");
   } catch (error) {
     return toErrorResult(error);
@@ -43,6 +44,7 @@ export async function updateCategory(categoryId: string, payload: unknown) {
     if (error || !data) return fail("UPDATE_CATEGORY_FAILED", error?.message ?? "แก้ไขหมวดหมู่ไม่สำเร็จ");
     await supabase.from("activity_logs").insert({ user_id: user.id, action: "UPDATE_CATEGORY", detail_json: { category_id: categoryId } });
     revalidatePath("/");
+    revalidatePath("/categories");
     return ok(data, "แก้ไขหมวดหมู่สำเร็จ");
   } catch (error) {
     return toErrorResult(error);
@@ -58,6 +60,7 @@ export async function deactivateCategory(categoryId: string) {
     if (error || !data) return fail("DEACTIVATE_CATEGORY_FAILED", error?.message ?? "ปิดหมวดหมู่ไม่สำเร็จ");
     await supabase.from("activity_logs").insert({ user_id: user.id, action: "DEACTIVATE_CATEGORY", detail_json: { category_id: categoryId } });
     revalidatePath("/");
+    revalidatePath("/categories");
     return ok(data, "ปิดหมวดหมู่สำเร็จ");
   } catch (error) {
     return toErrorResult(error);
