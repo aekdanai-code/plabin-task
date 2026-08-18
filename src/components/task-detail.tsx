@@ -123,6 +123,8 @@ export function TaskDetailPanel({
               <ChecklistEditor
                 items={visibleChecklist}
                 canCheck={canCheckTask(access)}
+                taskId={task.id}
+                userId={currentUser.id}
                 onRowsChange={updateChecklistProgress}
               />
             </div>
