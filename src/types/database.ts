@@ -79,6 +79,20 @@ export type Database = {
         };
         Update: Partial<Database["public"]["Tables"]["checklist_items"]["Row"]>;
       };
+      checklist_notes: {
+        Row: {
+          id: string;
+          checklist_item_id: string;
+          author_id: string | null;
+          content: string;
+          created_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["checklist_notes"]["Row"]> & {
+          checklist_item_id: string;
+          content: string;
+        };
+        Update: never;
+      };
       task_shares: {
         Row: {
           id: string;

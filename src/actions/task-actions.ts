@@ -103,7 +103,7 @@ export async function getTaskDetail(taskId: string): Promise<ActionResult<TaskDe
     const { data, error } = await supabase
       .from("tasks")
       .select(
-        "*, categories(*), checklist_items(*), task_shares(*, profile:profiles!task_shares_user_id_fkey(id,email,display_name,avatar_url))"
+        "*, categories(*), checklist_items(*, checklist_notes(*, author:profiles!checklist_notes_author_id_fkey(id,email,display_name,avatar_url))), task_shares(*, profile:profiles!task_shares_user_id_fkey(id,email,display_name,avatar_url))"
       )
       .eq("id", taskId)
       .eq("is_deleted", false)
@@ -112,9 +112,14 @@ export async function getTaskDetail(taskId: string): Promise<ActionResult<TaskDe
     if (error || !data) return fail("TASK_NOT_FOUND", "ไม่พบ Task หรือคุณไม่มีสิทธิ์เข้าถึง");
 
     const mapped = mapTask(data as unknown as TaskRow, user.id) as TaskDetail;
-    mapped.checklist_items = ((data as { checklist_items?: TaskDetail["checklist_items"] }).checklist_items ?? []).sort(
-      (a, b) => a.sort_order - b.sort_order
-    );
+    mapped.checklist_items = ((data as { checklist_items?: TaskDetail["checklist_items"] }).checklist_items ?? [])
+      .map((item) => ({
+        ...item,
+        checklist_notes: [...(item.checklist_notes ?? [])].sort(
+          (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+        )
+      }))
+      .sort((a, b) => a.sort_order - b.sort_order);
     mapped.shares = ((data as { task_shares?: TaskDetail["shares"] }).task_shares ?? []).filter((share) => share.is_active);
     return ok(mapped, "โหลดรายละเอียดสำเร็จ");
   } catch (error) {
