@@ -68,6 +68,38 @@ export async function updateChecklistNote(noteId: string, payload: unknown) {
   }
 }
 
+export async function deleteChecklistNote(noteId: string) {
+  try {
+    uuidSchema.parse(noteId);
+    const user = await requireUser();
+    const supabase = await createClient();
+    const { data: note, error: noteError } = await supabase
+      .from("checklist_notes")
+      .select("id")
+      .eq("id", noteId)
+      .eq("is_active", true)
+      .single();
+
+    if (noteError || !note) return fail("NOTE_NOT_FOUND", "ไม่พบหมายเหตุ หรือคุณไม่มีสิทธิ์ลบ");
+
+    const { error } = await supabase
+      .from("checklist_notes")
+      .update({
+        is_active: false,
+        deleted_at: new Date().toISOString(),
+        deleted_by: user.id
+      })
+      .eq("id", noteId)
+      .eq("is_active", true);
+
+    if (error) return fail("DELETE_NOTE_FAILED", error.message || "ลบหมายเหตุไม่สำเร็จ");
+    revalidatePath("/");
+    return ok({ id: noteId }, "ลบหมายเหตุสำเร็จ");
+  } catch (error) {
+    return toErrorResult(error, "ลบหมายเหตุไม่สำเร็จ");
+  }
+}
+
 export async function addChecklistItem(taskId: string, payload: unknown) {
   try {
     uuidSchema.parse(taskId);

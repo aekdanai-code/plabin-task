@@ -32,6 +32,8 @@ export type ChecklistNote = {
   created_at: string;
   updated_at: string;
   is_active: boolean;
+  deleted_at: string | null;
+  deleted_by: string | null;
   author?: Pick<Profile, "id" | "email" | "display_name" | "avatar_url"> | null;
 };
 

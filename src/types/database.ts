@@ -88,6 +88,8 @@ export type Database = {
           created_at: string;
           updated_at: string;
           is_active: boolean;
+          deleted_at: string | null;
+          deleted_by: string | null;
         };
         Insert: Partial<Database["public"]["Tables"]["checklist_notes"]["Row"]> & {
           checklist_item_id: string;
