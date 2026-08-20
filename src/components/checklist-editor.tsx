@@ -1,9 +1,11 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
-import { Check, CheckCircle2, ListChecks, Pencil, Plus } from "lucide-react";
+import { Check, CheckCircle2, ListChecks, Pencil, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
-import { addChecklistNote, toggleChecklistItem, updateChecklistNote } from "@/actions/checklist-actions";
+import { addChecklistNote, deleteChecklistNote, toggleChecklistItem, updateChecklistNote } from "@/actions/checklist-actions";
+import { ConfirmDialog } from "@/components/confirm-dialog";
+import { RichTextWithLinks } from "@/components/rich-text-with-links";
 import type { ChecklistItem } from "@/types/app";
 
 export function ChecklistEditor({
@@ -24,6 +26,8 @@ export function ChecklistEditor({
   const [noteEditorItemId, setNoteEditorItemId] = useState<string | null>(null);
   const [noteDraft, setNoteDraft] = useState("");
   const [savingNote, setSavingNote] = useState(false);
+  const [deletingNote, setDeletingNote] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<{ itemId: string; noteId: string; itemName: string } | null>(null);
   const rowsRef = useRef(items);
   const noteInputRef = useRef<HTMLTextAreaElement>(null);
   const pendingRef = useRef(new Set<string>());
@@ -74,7 +78,7 @@ export function ChecklistEditor({
   }
 
   function openNoteEditor(itemId: string, currentContent = "") {
-    if (!canCheck || savingNote) return;
+    if (!canCheck || savingNote || deletingNote) return;
     setNoteEditorItemId(itemId);
     setNoteDraft(currentContent);
   }
@@ -117,6 +121,26 @@ export function ChecklistEditor({
     setSavingNote(false);
     setNoteEditorItemId(null);
     setNoteDraft("");
+    toast.success(result.message);
+  }
+
+  async function confirmDeleteNote() {
+    if (!deleteTarget || deletingNote) return;
+    setDeletingNote(true);
+    const result = await deleteChecklistNote(deleteTarget.noteId);
+    if (!result.ok) {
+      toast.error(result.message);
+      setDeletingNote(false);
+      return;
+    }
+
+    commitRows(
+      rowsRef.current.map((row) =>
+        row.id === deleteTarget.itemId ? { ...row, checklist_notes: [] } : row
+      )
+    );
+    setDeletingNote(false);
+    setDeleteTarget(null);
     toast.success(result.message);
   }
 
@@ -204,14 +228,29 @@ export function ChecklistEditor({
                   {item.item_name}
                 </span>
                 {canCheck && !editorOpen ? (
-                  <button
-                    type="button"
-                    onClick={() => openNoteEditor(item.id, note?.content)}
-                    className="inline-flex shrink-0 items-center gap-1 rounded-md border border-apple-line bg-white px-2.5 py-1.5 text-xs font-medium text-apple-text opacity-100 transition hover:border-apple-blue/40 hover:text-apple-blue sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100"
-                  >
-                    {note ? <Pencil className="h-3.5 w-3.5" /> : <Plus className="h-3.5 w-3.5" />}
-                    {note ? "แก้ไขหมายเหตุ" : "เพิ่มหมายเหตุ"}
-                  </button>
+                  <div className="flex shrink-0 items-center gap-1 opacity-100 transition sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100">
+                    <button
+                      type="button"
+                      disabled={deletingNote}
+                      onClick={() => openNoteEditor(item.id, note?.content)}
+                      className="inline-flex items-center gap-1 rounded-md border border-apple-line bg-white px-2.5 py-1.5 text-xs font-medium text-apple-text transition hover:border-apple-blue/40 hover:text-apple-blue disabled:opacity-50"
+                    >
+                      {note ? <Pencil className="h-3.5 w-3.5" /> : <Plus className="h-3.5 w-3.5" />}
+                      {note ? "แก้ไขหมายเหตุ" : "เพิ่มหมายเหตุ"}
+                    </button>
+                    {note ? (
+                      <button
+                        type="button"
+                        disabled={deletingNote}
+                        onClick={() => setDeleteTarget({ itemId: item.id, noteId: note.id, itemName: item.item_name })}
+                        title="ลบหมายเหตุ"
+                        aria-label={`ลบหมายเหตุของ ${item.item_name}`}
+                        className="flex h-8 w-8 items-center justify-center rounded-md border border-apple-line bg-white text-apple-muted transition hover:border-apple-red/40 hover:text-apple-red disabled:opacity-50"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    ) : null}
+                  </div>
                 ) : null}
                 <span className="shrink-0 rounded-md bg-white px-3 py-1 text-xs font-medium text-apple-muted">W {item.weight}</span>
               </div>
@@ -219,7 +258,7 @@ export function ChecklistEditor({
               {note && !editorOpen ? (
                 <div className="ml-8 mt-2 border-l-2 border-apple-line pl-3">
                   <div className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
-                    <p className="whitespace-pre-wrap break-words text-sm leading-5 text-apple-muted">{note.content}</p>
+                    <RichTextWithLinks text={note.content} className="text-sm leading-5 text-apple-muted" />
                     <p className="shrink-0 text-[11px] text-apple-muted/80">
                       {note.author?.display_name || note.author?.email || "สมาชิกในทีม"} · {formatNoteTime(note.updated_at || note.created_at)}
                     </p>
@@ -265,6 +304,16 @@ export function ChecklistEditor({
           })}
         </div>
       )}
+      <ConfirmDialog
+        open={Boolean(deleteTarget)}
+        title="ลบหมายเหตุ"
+        description={`ต้องการลบหมายเหตุของ Checklist “${deleteTarget?.itemName ?? ""}” ใช่หรือไม่? หลังลบแล้วสามารถเพิ่มหมายเหตุใหม่ได้`}
+        confirmText={deletingNote ? "กำลังลบ..." : "ลบหมายเหตุ"}
+        onCancel={() => {
+          if (!deletingNote) setDeleteTarget(null);
+        }}
+        onConfirm={() => void confirmDeleteNote()}
+      />
     </div>
   );
 }
