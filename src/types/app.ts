@@ -24,6 +24,15 @@ export type Category = {
   is_active: boolean;
 };
 
+export type ChecklistNote = {
+  id: string;
+  checklist_item_id: string;
+  author_id: string | null;
+  content: string;
+  created_at: string;
+  author?: Pick<Profile, "id" | "email" | "display_name" | "avatar_url"> | null;
+};
+
 export type ChecklistItem = {
   id: string;
   task_id: string;
@@ -34,6 +43,7 @@ export type ChecklistItem = {
   checked_by: string | null;
   checked_at: string | null;
   is_deleted: boolean;
+  checklist_notes?: ChecklistNote[];
 };
 
 export type TaskShare = {

@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { Check, CheckCircle2, ListChecks } from "lucide-react";
+import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
+import { Check, CheckCircle2, ListChecks, Plus } from "lucide-react";
 import { toast } from "sonner";
-import { toggleChecklistItem } from "@/actions/checklist-actions";
+import { addChecklistNote, toggleChecklistItem } from "@/actions/checklist-actions";
 import type { ChecklistItem } from "@/types/app";
 
 export function ChecklistEditor({
@@ -21,11 +21,19 @@ export function ChecklistEditor({
 }) {
   const [rows, setRows] = useState(items);
   const [filter, setFilter] = useState<"ALL" | "PENDING">("ALL");
+  const [noteEditorItemId, setNoteEditorItemId] = useState<string | null>(null);
+  const [noteDraft, setNoteDraft] = useState("");
+  const [savingNote, setSavingNote] = useState(false);
   const rowsRef = useRef(items);
+  const noteInputRef = useRef<HTMLTextAreaElement>(null);
   const pendingRef = useRef(new Set<string>());
   const [pendingIds, setPendingIds] = useState<string[]>([]);
   const filterStorageKey = `plabin:checklist-view:v1:${userId}:${taskId}`;
   const pendingCount = useMemo(() => rows.filter((item) => !item.is_checked).length, [rows]);
+  const noteCount = useMemo(
+    () => rows.reduce((total, item) => total + (item.checklist_notes?.length ?? 0), 0),
+    [rows]
+  );
   const filteredRows = useMemo(
     () => filter === "PENDING" ? rows.filter((item) => !item.is_checked) : rows,
     [filter, rows]
@@ -46,6 +54,10 @@ export function ChecklistEditor({
     }
   }, [filterStorageKey]);
 
+  useEffect(() => {
+    if (noteEditorItemId) noteInputRef.current?.focus();
+  }, [noteEditorItemId]);
+
   function changeFilter(nextFilter: "ALL" | "PENDING") {
     setFilter(nextFilter);
     try {
@@ -61,6 +73,61 @@ export function ChecklistEditor({
     onRowsChange?.(nextRows);
   }
 
+  function openNoteEditor(itemId: string) {
+    if (!canCheck || savingNote) return;
+    setNoteEditorItemId(itemId);
+    setNoteDraft("");
+  }
+
+  function closeNoteEditor() {
+    if (savingNote) return;
+    setNoteEditorItemId(null);
+    setNoteDraft("");
+  }
+
+  async function saveNote(itemId: string) {
+    if (savingNote) return;
+    const content = noteDraft.trim();
+    if (!content) {
+      toast.error("กรุณาระบุหมายเหตุ");
+      noteInputRef.current?.focus();
+      return;
+    }
+
+    setSavingNote(true);
+    const result = await addChecklistNote(itemId, { content });
+    if (!result.ok) {
+      toast.error(result.message);
+      setSavingNote(false);
+      noteInputRef.current?.focus();
+      return;
+    }
+
+    commitRows(
+      rowsRef.current.map((row) =>
+        row.id === itemId
+          ? { ...row, checklist_notes: [...(row.checklist_notes ?? []), result.data] }
+          : row
+      )
+    );
+    setSavingNote(false);
+    setNoteEditorItemId(null);
+    setNoteDraft("");
+    toast.success(result.message);
+  }
+
+  function handleNoteKeyDown(event: KeyboardEvent<HTMLTextAreaElement>, itemId: string) {
+    if (event.key === "Escape") {
+      event.preventDefault();
+      closeNoteEditor();
+      return;
+    }
+    if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) {
+      event.preventDefault();
+      void saveNote(itemId);
+    }
+  }
+
   async function toggle(item: ChecklistItem) {
     if (!canCheck || pendingRef.current.has(item.id)) return;
     const nextChecked = !item.is_checked;
@@ -73,7 +140,7 @@ export function ChecklistEditor({
       commitRows(rowsRef.current.map((row) => (row.id === item.id ? item : row)));
       toast.error(result.message);
     } else {
-      commitRows(rowsRef.current.map((row) => (row.id === item.id ? result.data : row)));
+      commitRows(rowsRef.current.map((row) => (row.id === item.id ? { ...row, ...result.data } : row)));
     }
     pendingRef.current.delete(item.id);
     setPendingIds(Array.from(pendingRef.current));
@@ -84,6 +151,7 @@ export function ChecklistEditor({
       <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <p className="text-xs text-apple-muted">
           รอตรวจ {pendingCount} จาก {rows.length} รายการ
+          {noteCount > 0 ? <span> · {noteCount} หมายเหตุ</span> : null}
         </p>
         <div className="inline-flex w-fit rounded-lg bg-apple-bg p-1" role="group" aria-label="เลือกการแสดง Checklist">
           <FilterButton
@@ -112,30 +180,95 @@ export function ChecklistEditor({
       ) : (
         <div className="space-y-2">
           {filteredRows.map((item) => (
-            <button
-              type="button"
-              key={item.id}
-              disabled={!canCheck || pendingIds.includes(item.id)}
-              onClick={() => void toggle(item)}
-              className="flex w-full items-center gap-3 rounded-lg bg-apple-bg p-3 text-left disabled:cursor-default disabled:opacity-70"
-            >
-              <span
-                className={`flex h-5 w-5 shrink-0 items-center justify-center rounded border ${
-                  item.is_checked ? "border-apple-green bg-apple-green text-white" : "border-apple-line bg-white"
-                }`}
-              >
-                {item.is_checked ? <Check className="h-3.5 w-3.5" /> : null}
-              </span>
-              <span className={`min-w-0 flex-1 text-sm ${item.is_checked ? "text-apple-muted line-through" : "text-apple-text"}`}>
-                {item.item_name}
-              </span>
-              <span className="shrink-0 rounded-md bg-white px-3 py-1 text-xs font-medium text-apple-muted">W {item.weight}</span>
-            </button>
+            <div key={item.id} className="group rounded-lg bg-apple-bg p-3">
+              <div className="flex w-full items-center gap-3">
+                <button
+                  type="button"
+                  disabled={!canCheck || pendingIds.includes(item.id)}
+                  onClick={() => void toggle(item)}
+                  aria-label={`${item.is_checked ? "ยกเลิกการตรวจ" : "ตรวจแล้ว"}: ${item.item_name}`}
+                  className={`flex h-5 w-5 shrink-0 items-center justify-center rounded border transition disabled:cursor-default disabled:opacity-60 ${
+                    item.is_checked ? "border-apple-green bg-apple-green text-white" : "border-apple-line bg-white"
+                  }`}
+                >
+                  {item.is_checked ? <Check className="h-3.5 w-3.5" /> : null}
+                </button>
+                <span className={`min-w-0 flex-1 text-sm ${item.is_checked ? "text-apple-muted line-through" : "text-apple-text"}`}>
+                  {item.item_name}
+                </span>
+                {canCheck && noteEditorItemId !== item.id ? (
+                  <button
+                    type="button"
+                    onClick={() => openNoteEditor(item.id)}
+                    className="inline-flex shrink-0 items-center gap-1 rounded-md border border-apple-line bg-white px-2.5 py-1.5 text-xs font-medium text-apple-text opacity-100 transition hover:border-apple-blue/40 hover:text-apple-blue sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100"
+                  >
+                    <Plus className="h-3.5 w-3.5" /> เพิ่มหมายเหตุ
+                  </button>
+                ) : null}
+                <span className="shrink-0 rounded-md bg-white px-3 py-1 text-xs font-medium text-apple-muted">W {item.weight}</span>
+              </div>
+
+              {(item.checklist_notes ?? []).map((note) => (
+                <div key={note.id} className="ml-8 mt-2 border-l-2 border-apple-line pl-3">
+                  <div className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
+                    <p className="whitespace-pre-wrap break-words text-sm leading-5 text-apple-muted">{note.content}</p>
+                    <p className="shrink-0 text-[11px] text-apple-muted/80">
+                      {note.author?.display_name || note.author?.email || "สมาชิกในทีม"} · {formatNoteTime(note.created_at)}
+                    </p>
+                  </div>
+                </div>
+              ))}
+
+              {noteEditorItemId === item.id ? (
+                <div className="ml-8 mt-3">
+                  <textarea
+                    ref={noteInputRef}
+                    value={noteDraft}
+                    maxLength={2000}
+                    rows={3}
+                    disabled={savingNote}
+                    onChange={(event) => setNoteDraft(event.target.value)}
+                    onKeyDown={(event) => handleNoteKeyDown(event, item.id)}
+                    placeholder="พิมพ์หมายเหตุ... (Enter เพื่อบันทึก, Shift+Enter ขึ้นบรรทัดใหม่)"
+                    className="w-full resize-y rounded-lg border border-apple-green bg-white px-3 py-2.5 text-sm leading-5 text-apple-text outline-none ring-2 ring-apple-green/10 placeholder:text-apple-muted disabled:opacity-60"
+                  />
+                  <div className="mt-2 flex items-center gap-3">
+                    <button
+                      type="button"
+                      disabled={savingNote || !noteDraft.trim()}
+                      onClick={() => void saveNote(item.id)}
+                      className="rounded-lg bg-apple-green px-4 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      {savingNote ? "กำลังบันทึก..." : "บันทึก"}
+                    </button>
+                    <button
+                      type="button"
+                      disabled={savingNote}
+                      onClick={closeNoteEditor}
+                      className="rounded-lg px-2 py-2 text-sm font-medium text-apple-muted hover:text-apple-text disabled:opacity-50"
+                    >
+                      ยกเลิก
+                    </button>
+                  </div>
+                </div>
+              ) : null}
+            </div>
           ))}
         </div>
       )}
     </div>
   );
+}
+
+function formatNoteTime(value: string) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  return new Intl.DateTimeFormat("th-TH", {
+    day: "numeric",
+    month: "short",
+    hour: "2-digit",
+    minute: "2-digit"
+  }).format(date);
 }
 
 function FilterButton({

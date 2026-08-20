@@ -7,6 +7,10 @@ export const checklistInputSchema = z.object({
   weight: z.coerce.number().min(0, "น้ำหนักต้องมากกว่าหรือเท่ากับ 0")
 });
 
+export const checklistNoteSchema = z.object({
+  content: z.string().trim().min(1, "กรุณาระบุหมายเหตุ").max(2000, "หมายเหตุต้องไม่เกิน 2,000 ตัวอักษร")
+});
+
 export const taskInputSchema = z.object({
   task_name: z.string().trim().min(1, "กรุณาระบุชื่อ Task").max(160),
   description: z.string().trim().max(2000).optional().nullable(),

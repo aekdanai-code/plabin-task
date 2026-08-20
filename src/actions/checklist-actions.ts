@@ -4,7 +4,36 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { requireUser } from "@/lib/auth";
 import { fail, ok, toErrorResult } from "@/lib/result";
-import { checklistInputSchema, uuidSchema } from "@/lib/validators";
+import { checklistInputSchema, checklistNoteSchema, uuidSchema } from "@/lib/validators";
+
+export async function addChecklistNote(itemId: string, payload: unknown) {
+  try {
+    uuidSchema.parse(itemId);
+    const input = checklistNoteSchema.parse(payload);
+    const user = await requireUser();
+    const supabase = await createClient();
+    const { data: item, error: itemError } = await supabase
+      .from("checklist_items")
+      .select("task_id")
+      .eq("id", itemId)
+      .eq("is_deleted", false)
+      .single();
+
+    if (itemError || !item) return fail("CHECKLIST_ITEM_NOT_FOUND", "ไม่พบ Checklist หรือคุณไม่มีสิทธิ์เข้าถึง");
+
+    const { data, error } = await supabase
+      .from("checklist_notes")
+      .insert({ checklist_item_id: itemId, author_id: user.id, content: input.content })
+      .select("*, author:profiles!checklist_notes_author_id_fkey(id,email,display_name,avatar_url)")
+      .single();
+
+    if (error || !data) return fail("ADD_NOTE_FAILED", error?.message ?? "เพิ่มหมายเหตุไม่สำเร็จ");
+    revalidatePath("/");
+    return ok(data, "เพิ่มหมายเหตุสำเร็จ");
+  } catch (error) {
+    return toErrorResult(error, "ข้อมูลหมายเหตุไม่ถูกต้อง");
+  }
+}
 
 export async function addChecklistItem(taskId: string, payload: unknown) {
   try {
