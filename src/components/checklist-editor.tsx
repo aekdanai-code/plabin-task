@@ -1,9 +1,9 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
-import { Check, CheckCircle2, ListChecks, Plus } from "lucide-react";
+import { Check, CheckCircle2, ListChecks, Pencil, Plus } from "lucide-react";
 import { toast } from "sonner";
-import { addChecklistNote, toggleChecklistItem } from "@/actions/checklist-actions";
+import { addChecklistNote, toggleChecklistItem, updateChecklistNote } from "@/actions/checklist-actions";
 import type { ChecklistItem } from "@/types/app";
 
 export function ChecklistEditor({
@@ -31,7 +31,7 @@ export function ChecklistEditor({
   const filterStorageKey = `plabin:checklist-view:v1:${userId}:${taskId}`;
   const pendingCount = useMemo(() => rows.filter((item) => !item.is_checked).length, [rows]);
   const noteCount = useMemo(
-    () => rows.reduce((total, item) => total + (item.checklist_notes?.length ?? 0), 0),
+    () => rows.filter((item) => (item.checklist_notes?.length ?? 0) > 0).length,
     [rows]
   );
   const filteredRows = useMemo(
@@ -73,10 +73,10 @@ export function ChecklistEditor({
     onRowsChange?.(nextRows);
   }
 
-  function openNoteEditor(itemId: string) {
+  function openNoteEditor(itemId: string, currentContent = "") {
     if (!canCheck || savingNote) return;
     setNoteEditorItemId(itemId);
-    setNoteDraft("");
+    setNoteDraft(currentContent);
   }
 
   function closeNoteEditor() {
@@ -95,7 +95,11 @@ export function ChecklistEditor({
     }
 
     setSavingNote(true);
-    const result = await addChecklistNote(itemId, { content });
+    const row = rowsRef.current.find((item) => item.id === itemId);
+    const existingNote = row?.checklist_notes?.[0];
+    const result = existingNote
+      ? await updateChecklistNote(existingNote.id, { content })
+      : await addChecklistNote(itemId, { content });
     if (!result.ok) {
       toast.error(result.message);
       setSavingNote(false);
@@ -106,7 +110,7 @@ export function ChecklistEditor({
     commitRows(
       rowsRef.current.map((row) =>
         row.id === itemId
-          ? { ...row, checklist_notes: [...(row.checklist_notes ?? []), result.data] }
+          ? { ...row, checklist_notes: [result.data] }
           : row
       )
     );
@@ -179,8 +183,11 @@ export function ChecklistEditor({
         </div>
       ) : (
         <div className="space-y-2">
-          {filteredRows.map((item) => (
-            <div key={item.id} className="group rounded-lg bg-apple-bg p-3">
+          {filteredRows.map((item) => {
+            const note = item.checklist_notes?.[0];
+            const editorOpen = noteEditorItemId === item.id;
+            return (
+              <div key={item.id} className="group rounded-lg bg-apple-bg p-3">
               <div className="flex w-full items-center gap-3">
                 <button
                   type="button"
@@ -196,30 +203,31 @@ export function ChecklistEditor({
                 <span className={`min-w-0 flex-1 text-sm ${item.is_checked ? "text-apple-muted line-through" : "text-apple-text"}`}>
                   {item.item_name}
                 </span>
-                {canCheck && noteEditorItemId !== item.id ? (
+                {canCheck && !editorOpen ? (
                   <button
                     type="button"
-                    onClick={() => openNoteEditor(item.id)}
+                    onClick={() => openNoteEditor(item.id, note?.content)}
                     className="inline-flex shrink-0 items-center gap-1 rounded-md border border-apple-line bg-white px-2.5 py-1.5 text-xs font-medium text-apple-text opacity-100 transition hover:border-apple-blue/40 hover:text-apple-blue sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100"
                   >
-                    <Plus className="h-3.5 w-3.5" /> เพิ่มหมายเหตุ
+                    {note ? <Pencil className="h-3.5 w-3.5" /> : <Plus className="h-3.5 w-3.5" />}
+                    {note ? "แก้ไขหมายเหตุ" : "เพิ่มหมายเหตุ"}
                   </button>
                 ) : null}
                 <span className="shrink-0 rounded-md bg-white px-3 py-1 text-xs font-medium text-apple-muted">W {item.weight}</span>
               </div>
 
-              {(item.checklist_notes ?? []).map((note) => (
-                <div key={note.id} className="ml-8 mt-2 border-l-2 border-apple-line pl-3">
+              {note && !editorOpen ? (
+                <div className="ml-8 mt-2 border-l-2 border-apple-line pl-3">
                   <div className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
                     <p className="whitespace-pre-wrap break-words text-sm leading-5 text-apple-muted">{note.content}</p>
                     <p className="shrink-0 text-[11px] text-apple-muted/80">
-                      {note.author?.display_name || note.author?.email || "สมาชิกในทีม"} · {formatNoteTime(note.created_at)}
+                      {note.author?.display_name || note.author?.email || "สมาชิกในทีม"} · {formatNoteTime(note.updated_at || note.created_at)}
                     </p>
                   </div>
                 </div>
-              ))}
+              ) : null}
 
-              {noteEditorItemId === item.id ? (
+              {editorOpen ? (
                 <div className="ml-8 mt-3">
                   <textarea
                     ref={noteInputRef}
@@ -239,7 +247,7 @@ export function ChecklistEditor({
                       onClick={() => void saveNote(item.id)}
                       className="rounded-lg bg-apple-green px-4 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50"
                     >
-                      {savingNote ? "กำลังบันทึก..." : "บันทึก"}
+                      {savingNote ? "กำลังบันทึก..." : note ? "บันทึกการแก้ไข" : "บันทึก"}
                     </button>
                     <button
                       type="button"
@@ -252,8 +260,9 @@ export function ChecklistEditor({
                   </div>
                 </div>
               ) : null}
-            </div>
-          ))}
+              </div>
+            );
+          })}
         </div>
       )}
     </div>

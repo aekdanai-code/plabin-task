@@ -21,15 +21,48 @@ export async function addChecklistNote(itemId: string, payload: unknown) {
 
     if (itemError || !item) return fail("CHECKLIST_ITEM_NOT_FOUND", "ไม่พบ Checklist หรือคุณไม่มีสิทธิ์เข้าถึง");
 
+    const { data: existingNote } = await supabase
+      .from("checklist_notes")
+      .select("id")
+      .eq("checklist_item_id", itemId)
+      .eq("is_active", true)
+      .maybeSingle();
+    if (existingNote) return fail("NOTE_ALREADY_EXISTS", "Checklist นี้มีหมายเหตุแล้ว กรุณาแก้ไขหมายเหตุเดิม");
+
     const { data, error } = await supabase
       .from("checklist_notes")
-      .insert({ checklist_item_id: itemId, author_id: user.id, content: input.content })
+      .insert({ checklist_item_id: itemId, author_id: user.id, content: input.content, is_active: true })
       .select("*, author:profiles!checklist_notes_author_id_fkey(id,email,display_name,avatar_url)")
       .single();
 
-    if (error || !data) return fail("ADD_NOTE_FAILED", error?.message ?? "เพิ่มหมายเหตุไม่สำเร็จ");
+    if (error || !data) {
+      if (error?.code === "23505") return fail("NOTE_ALREADY_EXISTS", "Checklist นี้มีหมายเหตุแล้ว กรุณาแก้ไขหมายเหตุเดิม");
+      return fail("ADD_NOTE_FAILED", error?.message ?? "เพิ่มหมายเหตุไม่สำเร็จ");
+    }
     revalidatePath("/");
     return ok(data, "เพิ่มหมายเหตุสำเร็จ");
+  } catch (error) {
+    return toErrorResult(error, "ข้อมูลหมายเหตุไม่ถูกต้อง");
+  }
+}
+
+export async function updateChecklistNote(noteId: string, payload: unknown) {
+  try {
+    uuidSchema.parse(noteId);
+    const input = checklistNoteSchema.parse(payload);
+    const user = await requireUser();
+    const supabase = await createClient();
+    const { data, error } = await supabase
+      .from("checklist_notes")
+      .update({ content: input.content, author_id: user.id })
+      .eq("id", noteId)
+      .eq("is_active", true)
+      .select("*, author:profiles!checklist_notes_author_id_fkey(id,email,display_name,avatar_url)")
+      .single();
+
+    if (error || !data) return fail("UPDATE_NOTE_FAILED", error?.message ?? "แก้ไขหมายเหตุไม่สำเร็จ");
+    revalidatePath("/");
+    return ok(data, "แก้ไขหมายเหตุสำเร็จ");
   } catch (error) {
     return toErrorResult(error, "ข้อมูลหมายเหตุไม่ถูกต้อง");
   }

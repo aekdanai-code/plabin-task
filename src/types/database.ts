@@ -86,12 +86,14 @@ export type Database = {
           author_id: string | null;
           content: string;
           created_at: string;
+          updated_at: string;
+          is_active: boolean;
         };
         Insert: Partial<Database["public"]["Tables"]["checklist_notes"]["Row"]> & {
           checklist_item_id: string;
           content: string;
         };
-        Update: never;
+        Update: Partial<Database["public"]["Tables"]["checklist_notes"]["Row"]>;
       };
       task_shares: {
         Row: {
