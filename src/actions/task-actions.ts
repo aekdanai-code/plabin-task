@@ -115,9 +115,10 @@ export async function getTaskDetail(taskId: string): Promise<ActionResult<TaskDe
     mapped.checklist_items = ((data as { checklist_items?: TaskDetail["checklist_items"] }).checklist_items ?? [])
       .map((item) => ({
         ...item,
-        checklist_notes: [...(item.checklist_notes ?? [])].sort(
-          (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
-        )
+        checklist_notes: [...(item.checklist_notes ?? [])]
+          .filter((note) => note.is_active !== false)
+          .sort((a, b) => new Date(b.updated_at ?? b.created_at).getTime() - new Date(a.updated_at ?? a.created_at).getTime())
+          .slice(0, 1)
       }))
       .sort((a, b) => a.sort_order - b.sort_order);
     mapped.shares = ((data as { task_shares?: TaskDetail["shares"] }).task_shares ?? []).filter((share) => share.is_active);
