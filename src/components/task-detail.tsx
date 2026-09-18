@@ -5,7 +5,8 @@ import { BellRing, CalendarClock, Pencil, X } from "lucide-react";
 import { toast } from "sonner";
 import { notifyTaskTeam } from "@/actions/notification-actions";
 import { ChecklistEditor } from "@/components/checklist-editor";
-import { RichTextWithLinks } from "@/components/rich-text-with-links";
+import { TaskRichText } from "@/components/task-rich-text";
+import { TaskImageGallery } from "@/components/task-image-gallery";
 import { TaskForm } from "@/components/task-form";
 import { formatThaiDate } from "@/lib/format";
 import { canCheckTask, canEditTask, taskAccess } from "@/lib/permissions";
@@ -37,6 +38,8 @@ export function TaskDetailPanel({
   onClose: () => void;
 }) {
   const [editing, setEditing] = useState(false);
+  const [formDirty, setFormDirty] = useState(false);
+  const [formBusy, setFormBusy] = useState(false);
   const [progress, setProgress] = useState(Number(task.progress));
   const [status, setStatus] = useState<TaskStatus>(task.status);
   const [isPending, startTransition] = useTransition();
@@ -81,7 +84,7 @@ export function TaskDetailPanel({
             </span>
             <h2 className="mt-2 break-words text-2xl font-semibold text-apple-text">{task.task_name}</h2>
           </div>
-          <button onClick={onClose} className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-apple-bg" title="ปิด" aria-label="ปิด">
+          <button disabled={formBusy} onClick={() => { if (!editing || !formDirty || window.confirm("มีการแก้ไขที่ยังไม่ได้บันทึก ต้องการปิดหรือไม่?")) onClose(); }} className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-apple-bg" title="ปิด" aria-label="ปิด">
             <X className="h-5 w-5" />
           </button>
         </div>
@@ -94,7 +97,9 @@ export function TaskDetailPanel({
               currentUserId={currentUser.id}
               initialTask={task}
               canCheckChecklist={canCheckTask(access)}
-              onClose={() => setEditing(false)}
+              onDirtyChange={setFormDirty}
+              onBusyChange={setFormBusy}
+              onClose={() => { setEditing(false); setFormDirty(false); setFormBusy(false); }}
               onSaved={onClose}
             />
           </div>
@@ -104,9 +109,8 @@ export function TaskDetailPanel({
               <span className={`rounded-md px-3 py-1 text-xs font-semibold ${statusStyle[status]}`}>{statusLabel[status]}</span>
               <span className="text-xs text-apple-muted">สิทธิ์ {access}</span>
             </div>
-            <p className="mt-4 text-sm leading-6 text-apple-muted">
-              {task.description ? <RichTextWithLinks text={task.description} /> : "ไม่มีรายละเอียดเพิ่มเติม"}
-            </p>
+            <div className="mt-4"><TaskRichText document={task.description_richtext} fallback={task.description} /></div>
+            <TaskImageGallery images={task.images ?? []} />
             {task.due_at ? (
               <p className="mt-3 flex items-center gap-2 text-sm font-medium text-apple-orange">
                 <CalendarClock className="h-4 w-4" /> ครบกำหนด {formatThaiDate(task.due_at)}

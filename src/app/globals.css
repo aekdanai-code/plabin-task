@@ -64,3 +64,16 @@ select:focus-visible {
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
+
+.task-rich-text { overflow-wrap: anywhere; white-space: pre-wrap; }
+.task-rich-text p + p { margin-top: .75rem; }
+.task-rich-text h2 { margin: 1rem 0 .5rem; font-size: 1.125rem; font-weight: 600; }
+.task-rich-text h3 { margin: .75rem 0 .5rem; font-size: 1rem; font-weight: 600; }
+.task-rich-text strong { font-weight: 600; }
+.task-rich-text ul { list-style: disc; padding-left: 1.5rem; margin: .75rem 0; }
+.task-rich-text ol { list-style: decimal; padding-left: 1.5rem; margin: .75rem 0; }
+.task-rich-text li { margin: .25rem 0; }
+.task-rich-text li > p { margin: 0; }
+.task-rich-text blockquote { margin: .75rem 0; border-left: 3px solid #007aff; padding: .5rem 1rem; background: #f5f5f7; }
+.task-rich-text a { color: #007aff; text-decoration: underline; text-underline-offset: 3px; }
+.task-rich-text > :first-child { margin-top: 0; }

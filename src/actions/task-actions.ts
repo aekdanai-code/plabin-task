@@ -1,5 +1,7 @@
 "use server";
 
+import { normalizeTaskRichText, taskRichTextPlain } from "@/lib/task-rich-text";
+import { TASK_IMAGE_BUCKET, type TaskImage } from "@/lib/task-media";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { requireUser } from "@/lib/auth";
@@ -122,6 +124,9 @@ export async function getTaskDetail(taskId: string): Promise<ActionResult<TaskDe
       }))
       .sort((a, b) => a.sort_order - b.sort_order);
     mapped.shares = ((data as { task_shares?: TaskDetail["shares"] }).task_shares ?? []).filter((share) => share.is_active);
+    const images = await supabase.from("task_images").select("*").eq("task_id", taskId).eq("is_removed", false).order("sort_order");
+    if (images.error) return fail("LOAD_TASK_IMAGES_FAILED", "โหลดรูปภาพแนบไม่สำเร็จ กรุณาลองใหม่");
+    mapped.images = (images.data ?? []) as TaskImage[];
     return ok(mapped, "โหลดรายละเอียดสำเร็จ");
   } catch (error) {
     return toErrorResult(error);
@@ -129,70 +134,52 @@ export async function getTaskDetail(taskId: string): Promise<ActionResult<TaskDe
 }
 
 export async function createTask(payload: unknown, requestId: string): Promise<ActionResult<TaskSummary>> {
-  try {
-    const input = taskInputSchema.parse(payload);
-    uuidSchema.parse(requestId);
-    await requireUser();
-    const supabase = await createClient();
-
-    const { data: task, error } = await supabase.rpc("create_task_with_items", {
-      next_task_name: input.task_name,
-      next_description: input.description || "",
-      next_category_id: input.category_id,
-      next_checklist_items: input.checklist_items,
-      next_task_shares: input.shares,
-      request_id: requestId
-    });
-
-    if (error || !task) return fail("CREATE_TASK_FAILED", error?.message ?? "สร้าง Task ไม่สำเร็จ");
-    if (input.due_at) {
-      const dueUpdate = await supabase.from("tasks").update({ due_at: input.due_at, due_timezone: "Asia/Bangkok" }).eq("id", task.id);
-      if (dueUpdate.error) return fail("CREATE_TASK_DUE_DATE_FAILED", dueUpdate.error.message);
-      task.due_at = input.due_at;
-      task.due_timezone = "Asia/Bangkok";
-    }
-    revalidatePath("/");
-    return ok(task as TaskSummary, "สร้าง Task สำเร็จ");
-  } catch (error) {
-    return toErrorResult(error, "ข้อมูล Task ไม่ถูกต้อง");
-  }
+  return saveTask(null, payload, requestId);
 }
 
 export async function updateTask(taskId: string, payload: unknown, requestId: string): Promise<ActionResult<TaskSummary>> {
+  return saveTask(taskId, payload, requestId);
+}
+
+async function saveTask(taskId: string | null, payload: unknown, requestId: string): Promise<ActionResult<TaskSummary>> {
   try {
-    uuidSchema.parse(taskId);
+    if (taskId) uuidSchema.parse(taskId);
     uuidSchema.parse(requestId);
-    const input = taskUpdateSchema.parse(payload);
+    const input = (taskId ? taskUpdateSchema : taskInputSchema).parse(payload);
     await requireUser();
+    const rich = input.description_richtext ? normalizeTaskRichText(input.description_richtext) : null;
     const supabase = await createClient();
-
-    const { data, error } = await supabase.rpc("update_task_with_items", {
+    const { data, error } = await supabase.rpc("save_task_content", {
       target_task_id: taskId,
-      next_task_name: input.task_name,
-      next_description: input.description || "",
-      next_category_id: input.category_id,
-      next_checklist_items: input.checklist_items,
-      next_task_shares: input.shares ?? null,
-      request_id: requestId
+      payload: { ...input, description: rich ? taskRichTextPlain(rich).trim() : input.description || "", description_richtext: rich },
+      image_ids: input.gallery_image_ids,
+      request_id: requestId,
+      expected_updated_at: input.expected_updated_at ?? null
     });
-
-    if (error || !data) return fail("UPDATE_TASK_FAILED", error?.message ?? "แก้ไข Task ไม่สำเร็จ");
-    const { error: dueError } = await supabase
-      .from("tasks")
-      .update({ due_at: input.due_at || null, due_timezone: "Asia/Bangkok" })
-      .eq("id", taskId);
-    if (dueError) return fail("UPDATE_TASK_DUE_DATE_FAILED", dueError.message);
-    const notification = await supabase.rpc("emit_task_notification", {
-      target_task_id: taskId,
-      target_event_type: "TASK_EDITED",
-      event_payload: { request_id: requestId }
-    });
-    const notificationWarning = notification.error ? " แต่สร้างการแจ้งเตือนไม่สำเร็จ" : "";
+    if (error || !data) {
+      const message = error?.message.includes("TASK_CHANGED_RELOAD")
+        ? "Task นี้มีการแก้ไขจากที่อื่น กรุณาคัดลอกข้อความที่แก้ไว้ แล้วปิดและเปิด Task ใหม่ก่อนบันทึก"
+        : error?.message.includes("IMAGE_UPLOAD_INCOMPLETE")
+          ? "มีรูปที่อัปโหลดไม่สมบูรณ์ กรุณาลองอัปโหลดใหม่"
+          : error?.message ?? "บันทึก Task ไม่สำเร็จ";
+      return fail("SAVE_TASK_FAILED", message);
+    }
+    // The DB transaction is already committed. File cleanup must never undo a save.
+    let warning = "";
+    try {
+      const removed = await supabase.from("task_images").select("id,storage_path").eq("task_id", data.id).eq("is_removed", true);
+      if (removed.data?.length) {
+        const cleanup = await supabase.storage.from(TASK_IMAGE_BUCKET).remove(removed.data.map(image => image.storage_path));
+        if (cleanup.error) warning = " (นำรูปออกแล้ว แต่ล้างไฟล์เก่าไม่สำเร็จ)";
+      }
+      if (taskId) {
+        const notification = await supabase.rpc("emit_task_notification", { target_task_id: taskId, target_event_type: "TASK_EDITED", event_payload: { request_id: requestId } });
+        if (notification.error) warning += " (สร้างการแจ้งเตือนไม่สำเร็จ)";
+      }
+    } catch { warning = " (บันทึกแล้ว แต่ขั้นตอนล้างไฟล์หรือแจ้งเตือนยังไม่สำเร็จ)"; }
     revalidatePath("/");
-    return ok(data as TaskSummary, `แก้ไข Task สำเร็จ${notificationWarning}`);
-  } catch (error) {
-    return toErrorResult(error);
-  }
+    return ok(data as TaskSummary, `${taskId ? "แก้ไข" : "สร้าง"} Task สำเร็จ${warning}`);
+  } catch (error) { return toErrorResult(error, "ข้อมูล Task ไม่ถูกต้อง"); }
 }
 
 export async function cloneTask(taskId: string, taskName: string, requestId: string): Promise<ActionResult<TaskSummary>> {
