@@ -4,6 +4,8 @@ Plabin Task เวอร์ชัน Next.js + Supabase สำหรับ deplo
 
 ## ความสามารถ
 
+- รายละเอียด Task แบบ Rich Text พร้อมหัวข้อ รายการ และลิงก์ โดยรองรับข้อความเดิม
+- แกลเลอรี JPG/PNG/WebP สูงสุด 10 รูปต่อ Task และ 3 MB ต่อรูป พร้อมเรียงลำดับและดูภาพเต็ม
 - Supabase Auth และ Role `Admin` / `User`
 - Task, Category, Checklist แบบ Weight และ Progress อัตโนมัติ
 - สถานะ `ที่ต้องทำ` สีน้ำเงิน, `กำลังดำเนินการ` สีส้ม, `เสร็จสิ้น` สีเขียว
@@ -59,3 +61,7 @@ npm run build
 ```
 
 ดูขั้นตอน Supabase, GitHub และ Vercel แบบละเอียดใน [INSTALLATION_GUIDE.md](./INSTALLATION_GUIDE.md)
+
+สำหรับอัปเกรด Rich Text และแกลเลอรี ใช้ [TASK_GALLERY_DEPLOYMENT.md](./TASK_GALLERY_DEPLOYMENT.md) และ migration `20260918052407_task_rich_text_gallery.sql` ก่อน deploy โค้ดใหม่
+
+ทดสอบ validation ด้วย Node.js 24: `node --experimental-strip-types --test tests/task-content.test.mjs`

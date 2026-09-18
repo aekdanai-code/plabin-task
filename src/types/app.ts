@@ -158,6 +158,7 @@ export type TaskSummary = {
   id: string;
   task_name: string;
   description: string | null;
+  description_richtext?: import("@/lib/task-rich-text").RichTextNode | null;
   category_id: string;
   owner_id: string;
   progress: number;
@@ -177,6 +178,7 @@ export type TaskSummary = {
 };
 
 export type TaskDetail = TaskSummary & {
+  images: import("@/lib/task-media").TaskImage[];
   checklist_items: ChecklistItem[];
   shares: TaskShare[];
 };

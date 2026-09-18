@@ -39,6 +39,7 @@ export type Database = {
           id: string;
           task_name: string;
           description: string | null;
+          description_richtext: Json | null;
           category_id: string;
           owner_id: string;
           progress: number;
@@ -58,6 +59,23 @@ export type Database = {
           owner_id: string;
         };
         Update: Partial<Database["public"]["Tables"]["tasks"]["Row"]>;
+      };
+      task_images: {
+        Row: {
+          id: string;
+          task_id: string | null;
+          intended_task_id: string | null;
+          uploaded_by: string;
+          storage_path: string;
+          file_name: string;
+          mime_type: string;
+          size_bytes: number;
+          sort_order: number;
+          is_removed: boolean;
+          created_at: string;
+        };
+        Insert: never;
+        Update: never;
       };
       checklist_items: {
         Row: {
@@ -179,6 +197,18 @@ export type Database = {
     };
     Views: Record<string, never>;
     Functions: {
+      reserve_task_image: {
+        Args: { next_id: string; target_task_id: string | null; next_file_name: string; next_mime_type: string; next_size: number };
+        Returns: Database["public"]["Tables"]["task_images"]["Row"];
+      };
+      discard_task_images: {
+        Args: { image_ids: string[] };
+        Returns: undefined;
+      };
+      save_task_content: {
+        Args: { target_task_id: string | null; payload: Json; image_ids: string[]; request_id: string; expected_updated_at?: string | null };
+        Returns: Database["public"]["Tables"]["tasks"]["Row"];
+      };
       clone_task: {
         Args: { source_task_id: string; next_task_name: string; request_id: string };
         Returns: Database["public"]["Tables"]["tasks"]["Row"];

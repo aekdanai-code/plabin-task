@@ -14,6 +14,9 @@ export const checklistNoteSchema = z.object({
 export const taskInputSchema = z.object({
   task_name: z.string().trim().min(1, "กรุณาระบุชื่อ Task").max(160),
   description: z.string().trim().max(2000).optional().nullable(),
+  description_richtext: z.unknown().optional(),
+  gallery_image_ids: z.array(uuidSchema).max(10).default([]).refine(ids => new Set(ids).size === ids.length, "ไม่สามารถใช้รูปซ้ำได้"),
+  expected_updated_at: z.string().datetime({ offset: true }).optional().nullable(),
   due_at: z.string().datetime({ offset: true }).optional().nullable().or(z.literal("")),
   category_id: uuidSchema,
   checklist_items: z.array(checklistInputSchema).min(1, "ต้องมี Checklist อย่างน้อย 1 รายการ"),
